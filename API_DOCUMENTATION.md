@@ -200,7 +200,96 @@ Authorization: Bearer <token>
 - `BOOKS_FETCH_ERROR`: 获取书籍列表失败
 - `UNAUTHORIZED`: 未授权访问
 
-### 2. 获取书籍题目
+### 2. 添加新书籍
+**POST** `/books`
+
+#### 功能说明
+添加新书籍，通过 Coze 工作流获取书籍详细信息。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+#### 请求参数
+```json
+{
+  "title": "书名"
+}
+```
+
+#### 响应示例
+
+**成功添加新书籍 (201)**:
+```json
+{
+  "message": "书籍添加成功",
+  "book": {
+    "bookId": "uuid",
+    "title": "定位",
+    "author": "[美] 艾·里斯, 杰克·特劳特",
+    "description": "20多年前，美国《广告时代》杂志约请年轻的营销专家里斯和特劳特撰写一系列有关营销和广告新思维的文章...",
+    "coverImageUrl": "https://img9.doubanio.com/view/subject/l/public/s1081174.jpg",
+    "questionCount": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**书籍已存在 (200)**:
+```json
+{
+  "message": "书籍已存在",
+  "book": {
+    "bookId": "existing-uuid",
+    "title": "定位",
+    "author": "[美] 艾·里斯, 杰克·特劳特",
+    "description": "...",
+    "coverImageUrl": "...",
+    "questionCount": 15,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+#### 错误响应
+
+**400 - 参数错误**:
+```json
+{
+  "error": "书名不能为空",
+  "code": "INVALID_TITLE"
+}
+```
+
+**500 - Coze API 错误**:
+```json
+{
+  "error": "无法找到书籍信息，请稍后再试",
+  "code": "COZE_API_ERROR",
+  "details": "具体错误信息"
+}
+```
+
+**500 - 数据库错误**:
+```json
+{
+  "error": "书籍信息保存失败",
+  "code": "DATABASE_INSERT_ERROR"
+}
+```
+
+#### 特性说明
+- 同步处理：接口会等待 Coze 工作流返回书籍信息后再响应
+- 重复检查：自动检查书籍是否已存在，避免重复添加
+- 后台任务：书籍成功添加后会自动触发题目生成（异步执行）
+- 容错处理：Coze API 调用失败时会立即返回错误信息
+- 完整信息：通过 Coze 工作流获取书籍的详细信息，包括封面、描述、作者介绍等
+
+### 3. 获取书籍题目
 **GET** `/books/:bookId/questions`
 
 #### 请求头
@@ -252,7 +341,112 @@ Authorization: Bearer <token>
 - `QUESTIONS_FETCH_ERROR`: 获取题目失败
 - `UNAUTHORIZED`: 未授权访问
 
-### 3. 生成书籍题目
+### 3. 选择书籍进行巩固
+**POST** `/books/:bookId/select`
+
+#### 功能说明
+用户选择要巩固的书籍，创建用户与书籍的绑定关系。如果用户已经选择过该书籍，则返回现有记录。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+#### 路径参数
+- `bookId`: 书籍ID (uuid)
+
+#### 响应示例
+
+**首次选择书籍 (201)**:
+```json
+{
+  "message": "书籍选择成功，开始巩固之旅！",
+  "userProgress": {
+    "progressId": "b744e6d1-49a0-4557-b336-6e84a04000a1",
+    "bookId": "caa8bde3-48be-4f3f-b6f0-3f4b7f8862c4",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "questionCount": 10,
+    "highestAccuracy": 0,
+    "totalAttempts": 0,
+    "lastAttemptedAt": null,
+    "alreadySelected": false,
+    "selectedAt": "2025-10-16T08:48:09.30223+00:00"
+  }
+}
+```
+
+**重复选择书籍 (200)**:
+```json
+{
+  "message": "您已经选择过这本书籍",
+  "userProgress": {
+    "progressId": "b744e6d1-49a0-4557-b336-6e84a04000a1",
+    "bookId": "caa8bde3-48be-4f3f-b6f0-3f4b7f8862c4",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "questionCount": 10,
+    "alreadySelected": true,
+    "selectedAt": "2025-10-16T08:48:09.30223+00:00"
+  }
+}
+```
+
+#### 字段说明
+- `progressId`: 用户进度记录唯一标识符
+- `bookId`: 书籍唯一标识符
+- `title`: 书籍标题
+- `author`: 作者
+- `questionCount`: 书籍题目总数
+- `highestAccuracy`: 历史最高正确率 (0-1之间的小数)
+- `totalAttempts`: 总尝试次数
+- `lastAttemptedAt`: 最后尝试时间 (ISO 8601格式，可为null)
+- `alreadySelected`: 是否已经选择过该书籍
+- `selectedAt`: 选择时间 (ISO 8601格式)
+
+#### 错误响应
+
+**404 - 书籍不存在**:
+```json
+{
+  "error": "书籍不存在或未发布",
+  "code": "BOOK_NOT_FOUND"
+}
+```
+
+**400 - 书籍无题目**:
+```json
+{
+  "error": "该书籍暂无题目，无法开始巩固",
+  "code": "NO_QUESTIONS_AVAILABLE"
+}
+```
+
+**500 - 数据库错误**:
+```json
+{
+  "error": "检查用户学习状态时出错",
+  "code": "DATABASE_ERROR"
+}
+```
+
+**500 - 创建记录失败**:
+```json
+{
+  "error": "选择书籍失败",
+  "code": "DATABASE_INSERT_ERROR"
+}
+```
+
+#### 特性说明
+- 验证书籍存在性：确保书籍存在且已发布
+- 题目检查：确保书籍有可用题目才允许选择
+- 重复选择处理：如果用户已选择过该书籍，返回现有记录而不创建新记录
+- 自动创建进度记录：首次选择时在 `user_progress` 表中创建记录
+- 完整信息返回：返回书籍和用户进度的完整信息
+
+### 4. 生成书籍题目
 **POST** `/books/:bookId/generate-questions`
 
 #### 功能说明
@@ -467,6 +661,384 @@ Authorization: Bearer <token>
 - 学习准确率
 - 学习次数
 - 时间间隔
+
+---
+
+## Coze AI 对话接口
+
+### 1. 创建会话
+**POST** `/coze/conversation`
+
+#### 功能说明
+为当前用户创建一个新的 Coze AI 对话会话。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+```
+
+#### 响应示例
+```json
+{
+  "success": true,
+  "data": {
+    "conversation_id": "7372358454780100000",
+    "user_id": "uuid"
+  }
+}
+```
+
+#### 字段说明
+- `conversation_id`: Coze 平台生成的会话ID
+- `user_id`: 当前用户ID
+
+#### 错误码
+- `UNAUTHORIZED`: 用户未认证
+- `COZE_API_ERROR`: Coze API 调用失败
+
+### 2. 发起对话
+**POST** `/coze/chat`
+
+#### 功能说明
+向 Coze AI 发送消息并获取对话ID，用于后续状态查询。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+```
+
+#### 请求参数
+```json
+{
+  "message": "你好，请介绍一下你自己",
+  "conversation_id": "7372358454780100000",
+  "custom_variables": {
+    "username": "张三",
+    "user_preferences": "学习英语"
+  }
+}
+```
+
+#### 字段说明
+- `message`: 用户消息内容（必填）
+- `conversation_id`: 会话ID（可选，不提供时会自动创建）
+- `custom_variables`: 自定义变量（可选）
+
+#### 响应示例
+```json
+{
+  "success": true,
+  "data": {
+    "conversation_id": "7372358454780100000",
+    "chat_id": "7372358454780100001",
+    "status": "in_progress",
+    "created_at": 1640995200,
+    "last_error": null
+  }
+}
+```
+
+#### 字段说明
+- `chat_id`: 对话ID，用于查询状态和获取消息
+- `status`: 对话状态（in_progress/completed/failed/requires_action）
+- `created_at`: 创建时间戳
+- `last_error`: 错误信息（如有）
+
+#### 错误码
+- `UNAUTHORIZED`: 用户未认证
+- `MISSING_MESSAGE`: 消息内容不能为空
+- `COZE_API_ERROR`: Coze API 调用失败
+
+### 3. 完整对话（等待完成）
+**POST** `/coze/chat/complete`
+
+#### 功能说明
+发送消息并等待 AI 完成回复，直接返回完整的回复内容。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+```
+
+#### 请求参数
+```json
+{
+  "message": "请解释一下量子物理的基本概念",
+  "conversation_id": "7372358454780100000",
+  "custom_variables": {
+    "difficulty_level": "beginner"
+  }
+}
+```
+
+#### 响应示例
+```json
+{
+  "success": true,
+  "data": {
+    "response": "量子物理是研究微观粒子行为的物理学分支。它的基本概念包括：\n\n1. 量子化：能量、角动量等物理量只能取特定的离散值...\n\n2. 波粒二象性：微观粒子既表现出波动性，又表现出粒子性...\n\n3. 不确定性原理：无法同时精确测量粒子的位置和动量..."
+  }
+}
+```
+
+#### 字段说明
+- `response`: AI 的完整回复内容
+
+#### 错误码
+- `UNAUTHORIZED`: 用户未认证
+- `MISSING_MESSAGE`: 消息内容不能为空
+- `COZE_API_ERROR`: Coze API 调用失败
+- `CHAT_TIMEOUT`: 对话超时
+- `CHAT_FAILED`: 对话失败
+
+### 4. 获取对话状态
+**GET** `/coze/chat/:conversationId/:chatId/status`
+
+#### 功能说明
+查询指定对话的当前状态。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+```
+
+#### 路径参数
+- `conversationId`: 会话ID
+- `chatId`: 对话ID
+
+#### 响应示例
+```json
+{
+  "success": true,
+  "data": {
+    "id": "7372358454780100001",
+    "conversation_id": "7372358454780100000",
+    "bot_id": "7372358454780100002",
+    "status": "completed",
+    "created_at": 1640995200,
+    "completed_at": 1640995230,
+    "failed_at": null,
+    "last_error": null,
+    "usage": {
+      "token_count": 150,
+      "output_count": 80,
+      "input_count": 70
+    }
+  }
+}
+```
+
+#### 字段说明
+- `status`: 对话状态
+  - `in_progress`: 进行中
+  - `completed`: 已完成
+  - `failed`: 失败
+  - `requires_action`: 需要用户操作
+- `completed_at`: 完成时间戳
+- `failed_at`: 失败时间戳
+- `usage`: Token 使用统计
+
+#### 错误码
+- `UNAUTHORIZED`: 用户未认证
+- `MISSING_PARAMS`: 会话ID或对话ID不能为空
+- `COZE_API_ERROR`: Coze API 调用失败
+
+### 5. 获取消息列表
+**GET** `/coze/messages/:conversationId/:chatId`
+
+#### 功能说明
+获取指定对话的所有消息记录。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+```
+
+#### 路径参数
+- `conversationId`: 会话ID
+- `chatId`: 对话ID
+
+#### 响应示例
+```json
+{
+  "success": true,
+  "data": {
+    "messages": [
+      {
+        "id": "7372358454780100003",
+        "conversation_id": "7372358454780100000",
+        "bot_id": "7372358454780100002",
+        "chat_id": "7372358454780100001",
+        "meta_data": {},
+        "role": "user",
+        "type": "question",
+        "content": "请解释一下量子物理的基本概念",
+        "content_type": "text",
+        "created_at": 1640995200,
+        "updated_at": 1640995200
+      },
+      {
+        "id": "7372358454780100004",
+        "conversation_id": "7372358454780100000",
+        "bot_id": "7372358454780100002",
+        "chat_id": "7372358454780100001",
+        "meta_data": {},
+        "role": "assistant",
+        "type": "answer",
+        "content": "量子物理是研究微观粒子行为的物理学分支...",
+        "content_type": "text",
+        "created_at": 1640995230,
+        "updated_at": 1640995230
+      }
+    ]
+  }
+}
+```
+
+#### 字段说明
+- `messages`: 消息数组
+  - `role`: 消息角色（user/assistant）
+  - `type`: 消息类型（question/answer/function_call等）
+  - `content`: 消息内容
+  - `content_type`: 内容类型（text/image/file等）
+
+#### 错误码
+- `UNAUTHORIZED`: 用户未认证
+- `MISSING_PARAMS`: 会话ID或对话ID不能为空
+- `COZE_API_ERROR`: Coze API 调用失败
+
+### 6. 清空会话
+**DELETE** `/coze/conversation`
+
+#### 功能说明
+清空当前用户的 Coze 会话记录。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+```
+
+#### 响应示例
+```json
+{
+  "success": true,
+  "message": "会话已清空"
+}
+```
+
+#### 错误码
+- `UNAUTHORIZED`: 用户未认证
+
+### 7. 获取会话ID
+**GET** `/coze/conversation`
+
+#### 功能说明
+获取当前用户的 Coze 会话ID。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+```
+
+#### 响应示例
+```json
+{
+  "success": true,
+  "data": {
+    "conversation_id": "7372358454780100000",
+    "user_id": "uuid"
+  }
+}
+```
+
+#### 错误码
+- `UNAUTHORIZED`: 用户未认证
+- `CONVERSATION_NOT_FOUND`: 会话不存在，请先创建会话
+
+### Coze 环境配置
+
+需要在 `.env` 文件中配置以下环境变量：
+
+```env
+# Coze API 配置
+COZE_API_KEY=your_coze_api_key
+COZE_BASE_URL=https://api.coze.com
+COZE_BOT_ID=your_bot_id
+COZE_WORKFLOW_ID=your_workflow_id
+```
+
+### 使用示例
+
+#### JavaScript 示例
+```javascript
+// 创建会话并发起对话
+const createConversationAndChat = async (message) => {
+  const token = localStorage.getItem('token');
+  
+  // 1. 创建会话
+  const conversationResponse = await fetch('/coze/conversation', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  const { data: { conversation_id } } = await conversationResponse.json();
+  
+  // 2. 发起对话并等待完成
+  const chatResponse = await fetch('/coze/chat/complete', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      message,
+      conversation_id,
+      custom_variables: {
+        username: '用户名',
+        difficulty_level: 'beginner'
+      }
+    })
+  });
+  
+  const { data: { response } } = await chatResponse.json();
+  return response;
+};
+```
+
+#### Swift 示例
+```swift
+// 完整对话示例
+func completeChat(message: String, token: String) async throws -> String {
+    let url = URL(string: "http://localhost:3000/coze/chat/complete")!
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    
+    let body = [
+        "message": message,
+        "custom_variables": [
+            "username": "用户名",
+            "difficulty_level": "beginner"
+        ]
+    ] as [String : Any]
+    
+    request.httpBody = try JSONSerialization.data(withJSONObject: body)
+    
+    let (data, response) = try await URLSession.shared.data(for: request)
+    
+    if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+        let result = try JSONDecoder().decode(CozeResponse.self, from: data)
+        return result.data.response
+    } else {
+        let error = try JSONDecoder().decode(ErrorResponse.self, from: data)
+        throw APIError.serverError(error.error)
+    }
+}
+```
 
 ---
 

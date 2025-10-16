@@ -1,7 +1,7 @@
 # InkyBean iOS App Backend 开发文档
 
-**版本**: 1.5.0  
-**最后更新**: 2025-01-15
+**版本**: 1.6.3  
+**最后更新**: 2025-10-16
 
 ## Overview
 
@@ -21,6 +21,7 @@ InkyBean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 RE
 - 题目获取和随机排序
 - 学习进度提交和跟踪
 - 基于艾宾浩斯遗忘曲线的腐蚀度计算
+- Coze AI 对话和智能交互功能
 
 ## Database Schema
 
@@ -38,6 +39,8 @@ InkyBean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 RE
 | isPublished | boolean | NOT NULL | false | 是否已发布 |
 | createdAt | timestamptz | NOT NULL | now() | 创建时间 |
 | updatedAt | timestamptz | NOT NULL | now() | 更新时间 |
+
+**注意**: 该表结构已优化，移除了 `isbn`、`publisher`、`publishDate`、`authorIntro`、`url` 等字段，保持核心字段的简洁性。
 
 ### 2. questions 表
 存储题目信息
@@ -160,6 +163,54 @@ InkyBean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 RE
 
 ### 书籍接口 (`/books`)
 
+#### POST /books
+添加新书籍（通过 Coze AI 工作流获取书籍信息）
+
+**Headers:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**请求体:**
+```json
+{
+  "title": "游戏改变世界"
+}
+```
+
+**工作流程:**
+1. **参数验证**: 验证书名信息（不需要提供作者）
+2. **重复检查**: 检查书籍是否已存在于数据库中
+3. **AI 查询**: 调用 Coze 工作流 API 获取书籍详细信息
+4. **数据解析**: 解析 AI 返回的书籍信息
+   - `book_image` → `coverImageUrl`（封面图片）
+   - `summary` → `description`（书籍描述）
+   - `author` → 作者信息（从 AI 返回中提取）
+5. **数据库存储**: 将书籍信息保存到 books 表
+
+**响应示例:**
+```json
+{
+  "message": "书籍添加成功",
+  "book": {
+    "bookId": "3f6dae7f-ed34-4d42-8193-d025d175b0fe",
+    "title": "游戏改变世界",
+    "author": "简·麦戈尼格尔",
+    "description": "这是一本关于游戏如何改变世界的书籍...",
+    "coverImageUrl": "https://example.com/cover.jpg",
+    "questionCount": 0,
+    "createdAt": "2025-10-16T06:45:23.007352+00:00",
+    "updatedAt": "2025-10-16T06:45:23.007352+00:00"
+  }
+}
+```
+
+**错误码:**
+- `INVALID_TITLE`: 书名不能为空或格式错误
+- `COZE_API_ERROR`: Coze 工作流调用失败或返回数据格式错误
+- `DATABASE_INSERT_ERROR`: 数据库插入失败
+- `UNAUTHORIZED`: 未授权访问
+
 #### GET /books
 获取用户的所有书籍列表及对应的学习状态
 
@@ -185,6 +236,66 @@ Authorization: Bearer <JWT_TOKEN>
   }
 ]
 ```
+
+#### POST /books/:bookId/select
+用户选择要巩固的书籍，创建用户与书籍的绑定关系
+
+**Headers:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**路径参数:**
+- `bookId`: 书籍唯一标识符 (UUID)
+
+**工作流程:**
+1. **书籍验证**: 验证书籍是否存在且已发布
+2. **题目检查**: 确保书籍有可用题目（questionCount > 0）
+3. **重复检查**: 检查用户是否已经选择过该书籍
+4. **创建记录**: 如果是首次选择，在 `user_progress` 表中创建新记录
+5. **返回信息**: 返回书籍信息和用户进度状态
+
+**响应示例 (首次选择):**
+```json
+{
+  "message": "书籍选择成功，开始巩固之旅！",
+  "userProgress": {
+    "progressId": "b744e6d1-49a0-4557-b336-6e84a04000a1",
+    "bookId": "caa8bde3-48be-4f3f-b6f0-3f4b7f8862c4",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "questionCount": 10,
+    "highestAccuracy": 0,
+    "totalAttempts": 0,
+    "lastAttemptedAt": null,
+    "alreadySelected": false,
+    "selectedAt": "2025-10-16T08:48:09.30223+00:00"
+  }
+}
+```
+
+**响应示例 (重复选择):**
+```json
+{
+  "message": "您已经选择过这本书籍",
+  "userProgress": {
+    "progressId": "b744e6d1-49a0-4557-b336-6e84a04000a1",
+    "bookId": "caa8bde3-48be-4f3f-b6f0-3f4b7f8862c4",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "questionCount": 10,
+    "alreadySelected": true,
+    "selectedAt": "2025-10-16T08:48:09.30223+00:00"
+  }
+}
+```
+
+**错误码:**
+- `BOOK_NOT_FOUND`: 书籍不存在或未发布
+- `NO_QUESTIONS_AVAILABLE`: 该书籍暂无题目，无法开始巩固
+- `DATABASE_ERROR`: 检查用户学习状态时出错
+- `DATABASE_INSERT_ERROR`: 选择书籍失败
+- `UNAUTHORIZED`: 未授权访问
 
 #### GET /books/:bookId/questions
 获取一本书的所有题目
@@ -321,30 +432,82 @@ InkyBeanService/
 │   └── database.js          # Supabase 数据库配置
 ├── middleware/
 │   ├── auth.js              # JWT 认证中间件
+│   ├── logger.js            # 日志记录中间件
 │   └── validation.js        # 请求验证中间件
 ├── routes/
 │   ├── auth.js              # 认证路由
 │   ├── books.js             # 书籍路由
-│   └── progress.js          # 进度路由
+│   ├── progress.js          # 进度路由
+│   ├── coze.js              # Coze AI 对话路由
+│   └── user.js              # 用户路由
 ├── utils/
-│   └── corruptionCalculator.js  # 腐蚀度计算工具
+│   ├── corruptionCalculator.js  # 腐蚀度计算工具
+│   └── cozeService.js       # Coze API 服务封装
+├── migrations/
+│   └── create_themes_table.sql  # 数据库迁移文件
+├── tests/
+│   └── books.test.js        # 书籍功能测试
 ├── index.js                 # 应用入口文件
 ├── package.json             # 项目依赖配置
-├── .env                     # 环境变量
 ├── .env.example             # 环境变量示例
-├── backend.md               # 后端文档
-└── API_DOCUMENTATION.md     # 前端接口文档
+├── .env.production          # 生产环境配置
+├── backend.md               # 后端开发文档
+├── API_DOCUMENTATION.md     # 前端接口文档
+├── deploy.sh                # 部署脚本
+├── deploy-private.sh        # 私有仓库部署脚本
+├── ecosystem.config.js      # PM2 进程管理配置
+├── nginx.conf               # Nginx 反向代理配置
+├── cozeController.ts        # Coze 控制器（TypeScript）
+└── test-two-stage-generation.js  # 两阶段生成测试脚本
 ```
 
 ### 文件说明
 
-- **config/database.js**: Supabase 客户端配置，包含普通客户端和管理员客户端
-- **middleware/auth.js**: JWT 令牌验证中间件，保护需要认证的路由
-- **middleware/validation.js**: 使用 Joi 进行请求体验证
-- **routes/**: 各功能模块的路由定义
-- **utils/corruptionCalculator.js**: 实现艾宾浩斯遗忘曲线的腐蚀度计算算法
+#### 核心应用文件
 - **index.js**: Express 应用主入口，配置中间件和路由
-- **API_DOCUMENTATION.md**: 面向前端开发工程师的详细接口文档
+- **package.json**: 项目依赖配置，包含所有 npm 包和脚本
+
+#### 配置文件
+- **config/database.js**: Supabase 客户端配置，包含普通客户端和管理员客户端
+- **.env.example**: 环境变量示例文件，用于开发环境配置参考
+- **.env.production**: 生产环境配置模板
+
+#### 中间件
+- **middleware/auth.js**: JWT 令牌验证中间件，保护需要认证的路由
+- **middleware/logger.js**: 请求日志记录中间件，记录 API 调用信息
+- **middleware/validation.js**: 使用 Joi 进行请求体验证
+
+#### 路由模块
+- **routes/auth.js**: 用户认证相关路由（登录、注册、令牌刷新）
+- **routes/books.js**: 书籍管理路由（添加、获取、题目生成）
+- **routes/progress.js**: 学习进度路由（进度记录、腐蚀度计算）
+- **routes/coze.js**: Coze AI 对话接口路由，处理会话创建、消息发送等功能
+- **routes/user.js**: 用户信息管理路由
+
+#### 工具类
+- **utils/corruptionCalculator.js**: 实现艾宾浩斯遗忘曲线的腐蚀度计算算法
+- **utils/cozeService.js**: Coze API 服务封装类，提供统一的 API 调用接口
+
+#### 数据库相关
+- **migrations/create_themes_table.sql**: 主题表创建的 SQL 迁移文件
+
+#### 测试文件
+- **tests/books.test.js**: 书籍功能的单元测试
+- **test-two-stage-generation.js**: 两阶段 AI 生成功能的测试脚本
+
+#### 部署和运维
+- **deploy.sh**: 自动化部署脚本，包含代码拉取、依赖安装、服务重启
+- **deploy-private.sh**: 私有仓库的部署脚本
+- **ecosystem.config.js**: PM2 进程管理配置，用于生产环境进程管理
+- **nginx.conf**: Nginx 反向代理配置，包含负载均衡和 SSL 配置
+
+#### 文档
+- **backend.md**: 后端开发文档（本文档），面向后端开发者
+- **API_DOCUMENTATION.md**: 前端接口文档，面向前端开发工程师
+- **PRIVATE_REPO_SETUP.md**: 私有仓库设置指南
+
+#### 其他
+- **cozeController.ts**: Coze 控制器的 TypeScript 版本（实验性）
 
 ## AI题目生成系统
 
@@ -788,6 +951,56 @@ docker-compose pull && docker-compose up -d
 
 ## Changelog
 
+### Version 1.4.0 (2025-01-16)
+- ✅ 优化 POST /books 接口参数和字段映射
+- **接口优化**:
+  1. **简化输入参数**: 移除 `author` 参数要求，接口现在只需要提供书名 (`title`)
+  2. **智能作者提取**: 作者信息完全从 Coze AI 返回数据中提取，如果没有则设为"未知作者"
+  3. **修正字段映射**: 
+     - `book_image` → `coverImageUrl`（封面图片URL）
+     - `summary` → `description`（书籍描述）
+- **用户体验提升**:
+  1. 用户添加书籍时只需输入书名，无需查找作者信息
+  2. AI 自动补全书籍的完整信息（作者、描述、封面等）
+  3. 提高了接口的易用性和准确性
+- **技术改进**:
+  1. 优化 Coze 返回数据的解析逻辑
+  2. 增强字段映射的容错性（支持多种可能的字段名）
+  3. 完善错误处理和验证逻辑
+- **文档更新**: 
+  1. 更新 API 文档，反映新的参数要求
+  2. 添加详细的字段映射说明
+  3. 更新工作流程描述和示例
+- **影响**: 大幅简化了书籍添加流程，提升用户体验，同时保持数据完整性
+
+### Version 1.3.1 (2025-01-15)
+**新增书籍添加接口**
+- **新增功能**: 
+  - 添加 `POST /api/books` 接口，支持通过书名添加新书籍
+  - 集成 Coze 工作流 (ID: 7561667870758174763) 获取书籍详细信息
+  - 实现书籍重复检查机制，避免重复添加
+  - 支持同步处理和立即响应，提升用户体验
+  - 自动触发后台题目生成任务
+
+- **技术实现**:
+  - 使用 Coze 流式工作流接口获取书籍元数据
+  - 解析并验证 Coze 返回的书籍信息（书名、作者、描述、封面等）
+  - 实现完善的错误处理和容错机制
+  - 使用 `setImmediate` 实现异步后台任务触发
+
+- **数据库扩展**:
+  - books 表新增字段支持：isbn、publisher、publishDate、authorIntro、url
+  - 保持向后兼容性，新字段允许为空
+
+- **API 接口**:
+  - `POST /api/books` - 添加新书籍
+  - 支持书籍重复检查和 Coze 工作流集成
+  - 完善的错误码和响应格式
+
+- **文档更新**:
+  - 更新 API_DOCUMENTATION.md，添加新接口说明
+  - 包含详细的请求参数、响应示例和错误处理说明
+
 ### Version 1.5.0 (2025-01-15)
 - ✅ 新增完整的生产部署解决方案
 - **新增功能**:
@@ -901,7 +1114,67 @@ docker-compose pull && docker-compose up -d
   - 开发注意事项和最佳实践
 - **目的**: 帮助前端开发者快速理解和集成后端 API
 
-### 2025-01-14 - 修复书籍列表获取问题
+### 2025-10-16 - Coze API 端点修复和数据库字段优化
+- **问题**: POST /books 接口调用 Coze 工作流失败，返回 404 错误
+- **根本原因**: 
+  1. Coze API 工作流端点错误：使用了 `/v1/workflows/runs` 而非正确的 `/v1/workflow/run`
+  2. 缺少必要的 `app_id` 参数
+  3. 数据库插入时包含了不存在的字段（`isbn`、`publisher`、`publishDate`、`authorIntro`、`url`）
+- **解决方案**:
+  1. **API 端点修复**: 
+     - 修改 `utils/cozeService.js` 中的 `runWorkflow` 方法
+     - 更正端点从 `/v1/workflows/runs` 到 `/v1/workflow/run`
+     - 添加 `app_id: process.env.COZE_APP_ID` 参数
+  2. **环境配置更新**:
+     - 在 `.env` 文件中添加 `COZE_APP_ID` 配置项
+  3. **数据库字段优化**:
+     - 修改 `routes/books.js` 中的数据库插入逻辑
+     - 移除不存在的字段：`isbn`、`publisher`、`publishDate`、`authorIntro`、`url`
+     - 保留核心字段：`title`、`author`、`description`、`coverImageUrl`、`questionCount`、`isPublished`
+  4. **数据解析增强**:
+     - 改进 Coze 工作流响应数据的解析逻辑
+     - 支持多种数据格式的兼容性处理
+     - 增强错误处理和日志记录
+- **测试验证**: 
+  - 成功添加书籍《游戏改变世界》
+  - Coze 工作流正常调用并返回书籍信息
+  - 数据库插入成功，返回完整的书籍对象
+- **影响**: POST /books 接口现在能正确通过 Coze AI 工作流获取书籍信息并保存到数据库
+
+### Version 1.6.0 (2025-01-15)
+- ✅ 集成 Coze AI 对话功能模块
+- **新增功能**:
+  1. **Coze AI 对话系统**: 完整集成 Coze 平台的 AI 对话能力
+  2. **会话管理**: 支持创建、获取和清空用户会话
+  3. **智能对话**: 提供同步和异步两种对话模式
+  4. **消息追踪**: 完整的消息历史记录和状态查询
+  5. **工作流支持**: 预留 Coze 工作流执行接口
+- **技术实现**:
+  1. **CozeService 类**: 封装所有 Coze API 调用逻辑
+  2. **路由集成**: 新增 `/coze` 路由组，包含7个核心接口
+  3. **用户认证**: 所有接口均需要 JWT 认证
+  4. **错误处理**: 完善的错误分类和异常处理机制
+  5. **会话持久化**: 基于用户ID的会话状态管理
+- **API 接口**:
+  1. `POST /coze/conversation` - 创建会话
+  2. `POST /coze/chat` - 发起对话（异步）
+  3. `POST /coze/chat/complete` - 完整对话（同步）
+  4. `GET /coze/chat/:conversationId/:chatId/status` - 获取对话状态
+  5. `GET /coze/messages/:conversationId/:chatId` - 获取消息列表
+  6. `DELETE /coze/conversation` - 清空会话
+  7. `GET /coze/conversation` - 获取会话ID
+- **环境配置**: 需要配置 COZE_API_KEY、COZE_BASE_URL、COZE_BOT_ID 等环境变量
+- **文档更新**: 
+  1. 完善 API_DOCUMENTATION.md，添加详细的 Coze 接口文档
+  2. 更新 backend.md，记录架构变更和集成过程
+  3. 提供 JavaScript 和 Swift 使用示例
+- **代码结构**:
+  1. `routes/coze.js`: Express 路由控制器，处理HTTP请求
+  2. `utils/cozeService.js`: Coze API 服务封装，管理API调用和状态
+  3. `index.js`: 集成 Coze 路由到主应用
+- **影响**: 为 InkyBean 应用提供了强大的 AI 对话能力，支持智能问答、学习辅导等场景
+
+### 2025-01-15 - 修复书籍列表获取问题
 - **问题**: `GET /books` 接口返回空数组，无法获取已发布的书籍
 - **原因**: 
   1. JWT token 中的用户ID字段映射错误（`req.user.id` vs `req.user.userId`）
@@ -988,7 +1261,69 @@ docker-compose pull && docker-compose up -d
 - **错误处理**: 完善的错误码体系，包括AI服务错误、数据格式错误等
 - **影响**: 为应用提供了动态题目生成能力，大幅提升内容丰富度
 
-### Version 1.0.1 (2024-01-14)
+### Version 1.6.4 (2025-10-16)
+- ✅ 新增用户书籍选择接口，支持用户主动选择要巩固的书籍
+- **新增功能**:
+  1. **POST /books/:bookId/select**: 用户选择要巩固的书籍接口
+  2. **用户书籍绑定**: 在 `user_progress` 表中创建用户与书籍的绑定关系
+  3. **重复选择处理**: 智能处理用户重复选择同一书籍的情况
+  4. **完整验证机制**: 验证书籍存在性、发布状态和题目可用性
+- **工作流程**:
+  1. 验证书籍是否存在且已发布
+  2. 检查书籍是否有可用题目（questionCount > 0）
+  3. 检查用户是否已经选择过该书籍
+  4. 首次选择时创建新的 `user_progress` 记录
+  5. 返回完整的书籍信息和用户进度状态
+- **响应特性**:
+  - 首次选择：返回201状态码和完整进度信息
+  - 重复选择：返回200状态码和现有记录信息
+  - 包含 `alreadySelected` 字段标识选择状态
+- **错误处理**:
+  - `BOOK_NOT_FOUND`: 书籍不存在或未发布
+  - `NO_QUESTIONS_AVAILABLE`: 书籍暂无题目
+  - `DATABASE_ERROR`: 数据库查询错误
+  - `DATABASE_INSERT_ERROR`: 记录创建失败
+- **测试验证**:
+  1. 成功测试首次选择《平凡的世界》，创建进度记录
+  2. 验证重复选择的处理逻辑，返回现有记录
+  3. 确认错误处理机制正常工作
+- **文档更新**:
+  1. 更新 `API_DOCUMENTATION.md`，添加详细的接口说明
+  2. 更新 `backend.md`，记录新增功能和工作流程
+- **影响**: 为用户提供了主动选择书籍进行巩固的能力，完善了用户学习流程的起始环节
+
+### Version 1.6.3 (2025-10-16)
+- ✅ 优化异步题目生成机制，从HTTP调用改为直接函数调用
+- **问题**: 书籍添加后异步触发题目生成时，通过HTTP请求调用 `/books/:bookId/generate-questions` 接口存在认证问题，导致题目生成失败
+- **解决方案**: 
+  1. 从 `POST /books/:bookId/generate-questions` 路由中提取核心逻辑，创建独立的 `generateQuestionsForBook()` 函数
+  2. 修改书籍添加后的异步任务，直接调用 `generateQuestionsForBook()` 函数而不是HTTP请求
+  3. 避免了JWT token传递和认证的复杂性，提高了系统内部调用的可靠性
+  4. 保持原有API接口不变，确保外部调用兼容性
+- **技术改进**:
+  - 新增 `generateQuestionsForBook(bookId, bookTitle, bookAuthor)` 核心函数
+  - 函数包含完整的题目生成流程：主题生成、角度分配、题目生成、去重、数据库存储
+  - 改进错误处理和日志记录，便于调试和监控
+- **测试结果**: 
+  - 《平凡的世界》添加后成功生成10道题目，questionCount正确更新
+  - 《围城》等书籍的题目生成功能正常运行
+  - 异步任务执行稳定，无认证错误
+- **影响**: 提升了系统内部调用的稳定性和性能，消除了认证相关的潜在问题
+
+### Version 1.6.2 (2025-10-16)
+- ✅ 修复 Coze 工作流响应解析问题
+- **问题**: 书籍添加时 Coze 工作流返回的书籍信息无法正确解析，导致作者、描述、封面图片等字段为空
+- **解决方案**: 
+  1. 修复 `books.js` 中 Coze 工作流响应的 JSON 解析逻辑
+  2. 正确处理嵌套的 `output` 字段结构：`workflowResponse.data` -> `JSON.parse()` -> `output` 字段
+  3. 更新字段映射逻辑，支持 `authors` 数组和单个 `author` 字段
+  4. 优化 `book_name`、`summary`、`book_image` 等字段的提取逻辑
+- **测试结果**: 
+  - 《1984》成功解析：作者 "[英] 乔治·奥威尔"，完整描述和封面图片
+  - 《三体》等其他书籍的 Coze 工作流调用正常
+- **影响**: 书籍添加功能现在能正确从 Coze 工作流获取并保存完整的书籍信息
+
+### Version 1.6.1 (2025-01-15)
 - ✅ 修复书籍列表接口的数据库查询问题
 - **问题**: 书籍列表接口返回空数组，无法获取书籍数据
 - **解决方案**: 
@@ -1022,6 +1357,9 @@ docker-compose pull && docker-compose up -d
 
 ---
 
-**最后更新**: 2025-01-15  
-**文档版本**: 1.5.0  
+**最后更新**: 2025-10-16
+
+---
+
+**文档版本**: 1.6.3  
 **维护者**: InkyBean 开发团队

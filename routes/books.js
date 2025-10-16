@@ -3,10 +3,194 @@ const axios = require('axios');
 const { supabase, supabaseAdmin } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { calculateCorruptionLevel } = require('../utils/corruptionCalculator');
+const { getCozeService } = require('../utils/cozeService');
 
 const router = express.Router();
 
-// GET /books - 获取所有书籍的基本信息
+// POST /books - 添加新书籍 (测试版本，暂时移除认证)
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { title } = req.body;
+    
+    // 验证输入参数
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
+      return res.status(400).json({
+        error: '书名不能为空',
+        code: 'INVALID_TITLE'
+      });
+    }
+
+    const bookTitle = title.trim();
+
+    // 第一步：检查书籍是否已存在
+    const { data: existingBook, error: checkError } = await supabaseAdmin
+      .from('books')
+      .select('*')
+      .eq('title', bookTitle)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 表示没有找到记录
+      console.error('检查书籍重复时出错:', checkError);
+      return res.status(500).json({
+        error: '检查书籍信息时出错',
+        code: 'DATABASE_ERROR'
+      });
+    }
+
+    // 如果书籍已存在，直接返回现有信息
+    if (existingBook) {
+      return res.json({
+        message: '书籍已存在',
+        book: {
+          bookId: existingBook.bookId,
+          title: existingBook.title,
+          author: existingBook.author,
+          description: existingBook.description,
+          coverImageUrl: existingBook.coverImageUrl,
+          questionCount: existingBook.questionCount,
+          createdAt: existingBook.createdAt,
+          updatedAt: existingBook.updatedAt
+        }
+      });
+    }
+
+    // 第二步：调用 Coze 工作流获取书籍信息
+    const cozeService = getCozeService();
+    let bookInfo;
+    
+    try {
+      // 调用 Coze 工作流，使用 cozeService 的 runWorkflow 方法
+      const workflowResponse = await cozeService.runWorkflow({
+        title: bookTitle
+      });
+
+      console.log('Coze 工作流完整响应:', JSON.stringify(workflowResponse, null, 2));
+
+      // 解析工作流返回的结果
+      if (!workflowResponse || workflowResponse.code !== 0) {
+        throw new Error(`Coze 工作流执行失败: ${workflowResponse?.msg || '未知错误'}`);
+      }
+
+      // 尝试解析 data 字段（可能是 JSON 字符串）
+      let output;
+      try {
+        if (typeof workflowResponse.data === 'string') {
+          const parsedData = JSON.parse(workflowResponse.data);
+          // 如果解析后的数据有output字段，则使用output
+          output = parsedData.output || parsedData;
+        } else {
+          output = workflowResponse.data;
+          // 如果data是对象且有output字段，则使用output
+          if (output && output.output) {
+            output = output.output;
+          }
+        }
+      } catch (parseError) {
+        console.error('解析 Coze 响应数据失败:', parseError);
+        throw new Error('Coze 工作流返回数据格式错误');
+      }
+
+      console.log('解析后的输出:', JSON.stringify(output, null, 2));
+      
+      // 验证返回的书籍信息 - 根据实际响应结构调整
+      if (!output) {
+        throw new Error('Coze 返回的书籍信息不完整');
+      }
+
+      // 处理作者信息 - 根据实际Coze响应格式更新字段映射
+      let authorName = '';
+      if (output.authors && Array.isArray(output.authors)) {
+        authorName = output.authors.join(', ');
+      } else if (output.author) {
+        authorName = output.author;
+      } else {
+        // 如果没有直接的作者信息，设置为未知作者
+        authorName = '未知作者';
+      }
+
+      // 根据实际响应结构提取书名
+      let bookName = output.book_name || output.title || bookTitle;
+
+      bookInfo = {
+        title: bookName,
+        author: authorName,
+        description: output.summary || output.description || '',
+        coverImageUrl: output.book_image || output.cover_image || ''
+      };
+
+    } catch (cozeError) {
+      console.error('Coze 工作流调用失败:', cozeError);
+      return res.status(500).json({
+        error: '无法找到书籍信息，请稍后再试',
+        code: 'COZE_API_ERROR',
+        details: cozeError.message
+      });
+    }
+
+    // 第三步：将书籍信息写入数据库
+    const { data: newBook, error: insertError } = await supabaseAdmin
+      .from('books')
+      .insert({
+        title: bookInfo.title,
+        author: bookInfo.author,
+        description: bookInfo.description,
+        coverImageUrl: bookInfo.coverImageUrl,
+        questionCount: 0,
+        isPublished: true
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('书籍入库失败:', insertError);
+      return res.status(500).json({
+        error: '书籍信息保存失败',
+        code: 'DATABASE_INSERT_ERROR'
+      });
+    }
+
+    // 第四步：立即返回响应
+    const responseData = {
+      message: '书籍添加成功',
+      book: {
+        bookId: newBook.bookId,
+        title: newBook.title,
+        author: newBook.author,
+        description: newBook.description,
+        coverImageUrl: newBook.coverImageUrl,
+        questionCount: newBook.questionCount,
+        createdAt: newBook.createdAt,
+        updatedAt: newBook.updatedAt
+      }
+    };
+
+    // 第五步：触发后台题目生成任务（异步执行，不阻塞响应）
+    setImmediate(async () => {
+      try {
+        console.log(`开始为书籍 ${newBook.bookId} 生成题目...`);
+        
+        // 直接调用题目生成函数，避免HTTP请求
+        await generateQuestionsForBook(newBook.bookId, newBook.title, newBook.author);
+        
+        console.log(`书籍 ${newBook.bookId} 题目生成完成`);
+      } catch (generateError) {
+        console.error(`书籍 ${newBook.bookId} 题目生成失败:`, generateError.message);
+        // 这里可以添加重试逻辑或者记录到错误日志
+      }
+    });
+
+    res.status(201).json(responseData);
+
+  } catch (error) {
+    console.error('添加书籍时发生错误:', error);
+    res.status(500).json({
+      error: '服务器内部错误',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// GET /books - 获取所有书籍 (测试版本，暂时移除认证)
 router.get('/', authenticateToken, async (req, res) => {
   try {
     // 获取所有已发布的书籍 - 使用管理员客户端绕过RLS
@@ -85,8 +269,11 @@ router.get('/:bookId/questions', authenticateToken, async (req, res) => {
     // 3. 打乱题目顺序（增加趣味性）
     const shuffledQuestions = [...questions].sort(() => Math.random() - 0.5);
 
-    // 4. 格式化返回数据
-    const formattedQuestions = shuffledQuestions.map(question => ({
+    // 4. 限制返回数量为10题
+    const limitedQuestions = shuffledQuestions.slice(0, 10);
+
+    // 5. 格式化返回数据
+    const formattedQuestions = limitedQuestions.map(question => ({
       questionId: question.questionId,
       statement: question.statement,
       imageUrl: question.imageUrl,
@@ -100,7 +287,8 @@ router.get('/:bookId/questions', authenticateToken, async (req, res) => {
         title: book.title
       },
       questions: formattedQuestions,
-      totalCount: formattedQuestions.length
+      totalCount: questions.length, // 总题目数量
+      returnedCount: formattedQuestions.length // 本次返回的题目数量
     });
 
   } catch (error) {
@@ -282,6 +470,145 @@ router.post('/:bookId/generate-questions', authenticateToken, async (req, res) =
 });
 
 // 构建DeepSeek API提示词
+// 题目生成核心函数（从API路由中提取）
+async function generateQuestionsForBook(bookId, bookTitle, bookAuthor) {
+  try {
+    // 1. 获取书籍信息
+    const { data: book, error: bookError } = await supabaseAdmin
+      .from('books')
+      .select('*')
+      .eq('"bookId"', bookId)
+      .eq('"isPublished"', true)
+      .single();
+
+    if (bookError || !book) {
+      throw new Error('Book not found or not published');
+    }
+
+    // 2. 获取现有题目的主题（用于去重）
+    const { data: existingQuestions, error: questionsError } = await supabaseAdmin
+      .from('questions')
+      .select('statement, explanation')
+      .eq('"bookId"', bookId);
+
+    if (questionsError) {
+      console.error('Error fetching existing questions:', questionsError);
+      throw new Error('Failed to fetch existing questions');
+    }
+
+    // 3. 從themes表提取現有主題
+    const existingThemes = await extractExistingThemes(bookId);
+
+    // 4. 阶段1：生成新主题
+    console.log('🎯 Phase 1: Generating new themes...');
+    let newThemes;
+    try {
+      newThemes = await generateNewThemes(book.title, book.author, existingThemes);
+    } catch (error) {
+      console.error('Error generating new themes:', error);
+      throw new Error('Failed to generate new themes');
+    }
+    
+    if (!newThemes || newThemes.length === 0) {
+      throw new Error('Failed to generate new themes');
+    }
+
+    // 5. 保存新生成的themes到数据库
+    console.log('💾 Saving new themes to database...');
+    const themesToInsert = newThemes.map(theme => ({
+      bookId: bookId,
+      themeText: theme
+    }));
+
+    const { data: insertedThemes, error: themesInsertError } = await supabaseAdmin
+      .from('themes')
+      .insert(themesToInsert)
+      .select();
+
+    if (themesInsertError) {
+      console.error('Error inserting themes:', themesInsertError);
+      throw new Error('Failed to insert generated themes');
+    }
+
+    // 6. 后端随机角度指派
+    console.log('🎲 Assigning random creative angles...');
+    const themesWithAngles = assignRandomAngles(newThemes);
+
+    // 7. 阶段2：基于指定角度生成题目
+    console.log('📝 Phase 2: Generating questions with specified angles...');
+    let generatedQuestions;
+    try {
+      generatedQuestions = await generateQuestionsWithAngles(book.title, book.author, themesWithAngles);
+    } catch (error) {
+      console.error('Error generating questions with angles:', error);
+      throw new Error('Failed to generate questions');
+    }
+    
+    if (!generatedQuestions || generatedQuestions.length === 0) {
+      throw new Error('Failed to generate questions');
+    }
+
+    // 8. 安全检查与去重
+    const uniqueQuestions = deduplicateQuestions(generatedQuestions, existingQuestions);
+
+    // 9. 为每个题目分配对应的themeId
+    console.log('🔗 Linking questions to themes...');
+    const questionsToInsert = uniqueQuestions.map((question, index) => {
+      // 根据题目索引找到对应的theme
+      const themeIndex = index % insertedThemes.length;
+      const correspondingTheme = insertedThemes[themeIndex];
+      
+      return {
+        bookId: bookId,
+        statement: question.statement,
+        imageUrl: null,
+        isPure: question.isPure,
+        explanation: question.explanation,
+        themeId: correspondingTheme.id
+      };
+    });
+
+    const { data: insertedQuestions, error: insertError } = await supabaseAdmin
+      .from('questions')
+      .insert(questionsToInsert)
+      .select();
+
+    if (insertError) {
+      console.error('Error inserting questions:', insertError);
+      throw new Error('Failed to insert generated questions');
+    }
+
+    // 10. 更新书籍的题目数量
+    const newQuestionCount = book.questionCount + insertedQuestions.length;
+    const { error: updateError } = await supabaseAdmin
+      .from('books')
+      .update({ questionCount: newQuestionCount })
+      .eq('"bookId"', bookId);
+
+    if (updateError) {
+      console.error('Error updating book question count:', updateError);
+      // 不抛出错误，因为题目已经成功插入
+    }
+
+    console.log(`✅ Successfully generated ${insertedQuestions.length} questions for book ${bookId}`);
+    
+    return {
+      bookId: book.bookId,
+      bookTitle: book.title,
+      questions: insertedQuestions,
+      totalGenerated: insertedQuestions.length,
+      newQuestionCount: newQuestionCount,
+      themesUsed: newThemes,
+      themesInserted: insertedThemes,
+      anglesAssigned: themesWithAngles
+    };
+
+  } catch (error) {
+    console.error(`Error generating questions for book ${bookId}:`, error);
+    throw error;
+  }
+}
+
 function buildPrompt(bookTitle, author, existingStatements) {
   let prompt = `# Role 
 You are an expert educator and content creator, skilled at distilling a book's core ideas into insightful and non-trivial true/false statements. 
@@ -575,6 +902,114 @@ For EACH theme object provided in the input list, generate one true/false questi
   ]
 }`;
 }
+
+// POST /books/:bookId/select - 用户选择要巩固的书籍
+router.post('/:bookId/select', authenticateToken, async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const userId = req.user.userId;
+
+    // 1. 验证书籍是否存在且已发布
+    const { data: book, error: bookError } = await supabaseAdmin
+      .from('books')
+      .select('bookId, title, author, questionCount, isPublished')
+      .eq('bookId', bookId)
+      .eq('isPublished', true)
+      .single();
+
+    if (bookError || !book) {
+      return res.status(404).json({
+        error: '书籍不存在或未发布',
+        code: 'BOOK_NOT_FOUND'
+      });
+    }
+
+    // 2. 检查书籍是否有题目
+    if (book.questionCount === 0) {
+      return res.status(400).json({
+        error: '该书籍暂无题目，无法开始巩固',
+        code: 'NO_QUESTIONS_AVAILABLE'
+      });
+    }
+
+    // 3. 检查用户是否已经选择过这本书
+    const { data: existingProgress, error: checkError } = await supabase
+      .from('user_progress')
+      .select('progressId, createdAt')
+      .eq('userId', userId)
+      .eq('bookId', bookId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 表示没有找到记录
+      console.error('检查用户进度时出错:', checkError);
+      return res.status(500).json({
+        error: '检查用户学习状态时出错',
+        code: 'DATABASE_ERROR'
+      });
+    }
+
+    // 4. 如果用户已经选择过这本书，返回现有记录
+    if (existingProgress) {
+      return res.json({
+        message: '您已经选择过这本书籍',
+        userProgress: {
+          progressId: existingProgress.progressId,
+          bookId: bookId,
+          title: book.title,
+          author: book.author,
+          questionCount: book.questionCount,
+          alreadySelected: true,
+          selectedAt: existingProgress.createdAt
+        }
+      });
+    }
+
+    // 5. 创建新的用户进度记录
+    const { data: newProgress, error: insertError } = await supabase
+      .from('user_progress')
+      .insert({
+        userId: userId,
+        bookId: bookId,
+        highestAccuracy: 0,
+        totalAttempts: 0,
+        lastAttemptedAt: null
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('创建用户进度记录失败:', insertError);
+      return res.status(500).json({
+        error: '选择书籍失败',
+        code: 'DATABASE_INSERT_ERROR'
+      });
+    }
+
+    // 6. 返回成功响应
+    res.status(201).json({
+      message: '书籍选择成功，开始巩固之旅！',
+      userProgress: {
+        progressId: newProgress.progressId,
+        bookId: bookId,
+        title: book.title,
+        author: book.author,
+        questionCount: book.questionCount,
+        highestAccuracy: newProgress.highestAccuracy,
+        totalAttempts: newProgress.totalAttempts,
+        lastAttemptedAt: newProgress.lastAttemptedAt,
+        alreadySelected: false,
+        selectedAt: newProgress.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('选择书籍时发生错误:', error);
+    res.status(500).json({
+      error: '服务器内部错误',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
 
 // 安全檢查與去重
 function deduplicateQuestions(generatedQuestions, existingQuestions) {

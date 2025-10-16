@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const booksRoutes = require('./routes/books');
 const progressRoutes = require('./routes/progress');
 const userRoutes = require('./routes/user');
+const cozeRoutes = require('./routes/coze');
 
 // Import middleware
 const logger = require('./middleware/logger');
@@ -54,11 +55,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes
+// Routes
 app.use('/auth', authRoutes);
 app.use('/books', booksRoutes);
 app.use('/books', progressRoutes); // Progress routes are nested under /books
 app.use('/user', userRoutes);
+app.use('/coze', cozeRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
