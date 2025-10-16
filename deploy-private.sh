@@ -6,10 +6,10 @@
 set -e  # 遇到错误立即退出
 
 # 配置变量
-PROJECT_NAME="cobean-backend"
-DEPLOY_DIR="/var/www/cobean-backend"
-BACKUP_DIR="/var/backups/cobean-backend"
-SERVICE_NAME="cobean-backend"
+PROJECT_NAME="inkybean-backend"
+DEPLOY_DIR="/var/www/inkybean-backend"
+BACKUP_DIR="/var/backups/inkybean-backend"
+SERVICE_NAME="inkybean-backend"
 NODE_VERSION="18"
 
 # GitHub 私有仓库配置
@@ -124,7 +124,7 @@ pull_code() {
 
 # 显示使用说明
 show_usage() {
-    echo "Cobean Backend 私有仓库部署脚本"
+    echo "InkyBean Backend 私有仓库部署脚本"
     echo ""
     echo "认证方式:"
     echo "  方法1 - Personal Access Token:"
@@ -150,7 +150,7 @@ main() {
         "deploy")
             check_auth
             pull_code
-            log_success "私有仓库部署完成!"
+            log_success "InkyBean Backend 部署完成!"
             ;;
         "check-auth")
             check_auth

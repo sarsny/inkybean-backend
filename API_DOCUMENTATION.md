@@ -1,11 +1,11 @@
-# Cobean iOS App API 接口文档
+# InkyBean iOS App API 接口文档
 
 ## 概述
 
-本文档为 Cobean iOS App 后端 API 的详细接口说明，面向前端开发工程师。所有接口均基于 RESTful 设计原则，使用 JSON 格式进行数据交换。
+本文档为 InkyBean iOS App 后端 API 的详细接口说明，面向前端开发工程师。所有接口均基于 RESTful 设计原则，使用 JSON 格式进行数据交换。
 
 ### 基础信息
-- **Base URL**: `http://localhost:3000` (开发环境)
+- **Base URL**: `https://api.inkybean.com`
 - **Content-Type**: `application/json`
 - **认证方式**: Bearer Token (JWT)
 

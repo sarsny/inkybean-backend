@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Cobean iOS Backend 部署脚本
+# Inkybean iOS Backend 部署脚本
 # 用于从GitHub拉取代码并部署到生产服务器
 
 set -e  # 遇到错误立即退出
@@ -331,7 +331,7 @@ rollback() {
 
 # 显示帮助信息
 show_help() {
-    echo "Cobean Backend 部署脚本"
+    echo "Inkybean Backend 部署脚本"
     echo ""
     echo "用法: $0 [选项]"
     echo ""
@@ -349,7 +349,7 @@ show_help() {
 
 # 主函数
 main() {
-    log_info "开始 Cobean Backend 部署流程..."
+    log_info "开始 Inkybean Backend 部署流程..."
     
     case "${1:-deploy}" in
         "deploy")

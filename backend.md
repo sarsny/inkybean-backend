@@ -1,11 +1,11 @@
-# Cobean iOS App Backend Documentation
+# InkyBean iOS App Backend 开发文档
 
 **版本**: 1.5.0  
 **最后更新**: 2025-01-15
 
 ## Overview
 
-Cobean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 RESTful API 服务，为 iOS 应用提供用户认证、书籍管理、题目获取和学习进度跟踪功能。
+InkyBean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 RESTful API 服务，为 iOS 应用提供用户认证、书籍管理、题目获取和学习进度跟踪功能。
 
 ### 技术栈
 - **Runtime**: Node.js
@@ -1024,4 +1024,4 @@ docker-compose pull && docker-compose up -d
 
 **最后更新**: 2025-01-15  
 **文档版本**: 1.5.0  
-**维护者**: Cobean 开发团队
+**维护者**: InkyBean 开发团队

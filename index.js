@@ -63,7 +63,7 @@ app.use('/user', userRoutes);
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'Cobean iOS App Backend Service',
+    message: 'InkyBean iOS App Backend Service',
     version: '1.0.0',
     endpoints: {
       auth: {
@@ -105,7 +105,7 @@ app.use((error, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Cobean Backend Service running on port ${PORT}`);
+  console.log(`🚀 InkyBean Backend Service running on port ${PORT}`);
   console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
 });

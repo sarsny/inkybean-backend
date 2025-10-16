@@ -1,7 +1,7 @@
 {
   "name": "inkybean-service",
   "version": "1.0.0",
-  "description": "Cobean iOS App Backend Service",
+  "description": "InkyBean iOS App Backend Service",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -26,12 +26,12 @@
     "supertest": "^7.1.4"
   },
   "keywords": [
-    "cobean",
+    "inkybean",
     "ios",
     "backend",
     "supabase",
     "api"
   ],
-  "author": "Cobean Team",
+  "author": "InkyBean Team",
   "license": "MIT"
 }

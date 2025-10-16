@@ -2,9 +2,9 @@ module.exports = {
   apps: [
     {
       // 应用基本配置
-      name: 'cobean-backend',
+      name: 'inkybean-backend',
       script: 'index.js',
-      cwd: '/var/www/cobean-backend',
+      cwd: process.cwd(), // 使用当前工作目录
       
       // 运行环境
       env: {
@@ -26,9 +26,9 @@ module.exports = {
       max_memory_restart: '1G', // 内存超过1G时重启
       
       // 日志配置
-      log_file: '/var/log/cobean-backend/combined.log',
-      out_file: '/var/log/cobean-backend/out.log',
-      error_file: '/var/log/cobean-backend/error.log',
+      log_file: './logs/combined.log',
+      out_file: './logs/out.log',
+      error_file: './logs/error.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       
@@ -74,8 +74,8 @@ module.exports = {
       monitoring: false, // 如果使用PM2 Plus，设置为true
       
       // 自定义启动脚本
-      pre_hook: 'echo "Starting Cobean Backend..."',
-      post_hook: 'echo "Cobean Backend started successfully"'
+      pre_hook: 'echo "Starting InkyBean Backend..."',
+      post_hook: 'echo "InkyBean Backend started successfully"'
     }
   ],
   
@@ -85,8 +85,8 @@ module.exports = {
       user: 'deploy',
       host: ['your-server-ip'], // 替换为实际服务器IP
       ref: 'origin/main',
-      repo: 'https://github.com/your-username/cobean-ios-backend.git', // 替换为实际仓库地址
-      path: '/var/www/cobean-backend',
+      repo: 'https://github.com/your-username/inkybean-ios-backend.git', // 替换为实际仓库地址
+      path: '/var/www/inkybean-backend',
       'pre-deploy-local': '',
       'post-deploy': 'npm ci --production && pm2 reload ecosystem.config.js --env production',
       'pre-setup': 'apt-get update && apt-get install -y git nodejs npm',
@@ -97,8 +97,8 @@ module.exports = {
       user: 'deploy',
       host: ['staging-server-ip'], // 替换为实际测试服务器IP
       ref: 'origin/develop',
-      repo: 'https://github.com/your-username/cobean-ios-backend.git',
-      path: '/var/www/cobean-backend-staging',
+      repo: 'https://github.com/your-username/inkybean-ios-backend.git',
+      path: '/var/www/inkybean-backend-staging',
       'post-deploy': 'npm ci && pm2 reload ecosystem.config.js --env staging',
       env: {
         NODE_ENV: 'staging',
