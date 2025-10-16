@@ -27,6 +27,10 @@ const authSchemas = {
   login: Joi.object({
     email: Joi.string().email().required(),
     password: Joi.string().required()
+  }),
+
+  wechat: Joi.object({
+    code: Joi.string().required()
   })
 };
 

@@ -1,5 +1,8 @@
 # Cobean iOS App Backend Documentation
 
+**版本**: 1.4.0  
+**最后更新**: 2025-01-15
+
 ## Overview
 
 Cobean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 RESTful API 服务，为 iOS 应用提供用户认证、书籍管理、题目获取和学习进度跟踪功能。
@@ -64,7 +67,32 @@ Cobean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 REST
 | createdAt | timestamptz | NOT NULL | now() | 创建时间 |
 | updatedAt | timestamptz | NOT NULL | now() | 更新时间 |
 
-### 4. dialogues 表
+### 4. themes 表
+存储书籍主题信息（用于AI题目生成）
+
+| 字段名 | 类型 | 约束 | 默认值 | 说明 |
+|--------|------|------|--------|------|
+| id | uuid | PRIMARY KEY | gen_random_uuid() | 主题唯一标识 |
+| bookId | uuid | FOREIGN KEY | - | 关联书籍ID |
+| themeText | text | NOT NULL | - | 主题文本内容 |
+| createdAt | timestamptz | NOT NULL | now() | 创建时间 |
+
+### 5. questions 表
+存储题目信息
+
+| 字段名 | 类型 | 约束 | 默认值 | 说明 |
+|--------|------|------|--------|------|
+| questionId | uuid | PRIMARY KEY | gen_random_uuid() | 题目唯一标识符 |
+| bookId | uuid | FOREIGN KEY | - | 关联的书籍ID，引用books表 |
+| statement | text | NOT NULL | - | 题目陈述 |
+| imageUrl | text | NULLABLE | - | 题目配图URL |
+| isPure | boolean | NOT NULL | - | 是否为纯文本题目 |
+| explanation | text | NOT NULL | - | 题目解释说明 |
+| themeId | uuid | FOREIGN KEY | - | 关联的主题ID，引用themes表 |
+| createdAt | timestamptz | NOT NULL | now() | 创建时间 |
+| updatedAt | timestamptz | NOT NULL | now() | 更新时间 |
+
+### 6. dialogues 表
 存储对话内容（扩展功能）
 
 | 字段名 | 类型 | 约束 | 默认值 | 说明 |
@@ -166,25 +194,85 @@ Authorization: Bearer <JWT_TOKEN>
 Authorization: Bearer <JWT_TOKEN>
 ```
 
+**查询参数:**
+- `limit`: 题目数量限制 (可选，默认10)
+- `shuffle`: 是否随机排序 (可选，默认true)
+
 **响应示例:**
 ```json
 {
   "book": {
-    "bookId": "uuid",
+    "bookId": "44b16a72-429a-47ab-9fab-7aab94b341c6",
     "title": "《人类简史》"
   },
   "questions": [
     {
-      "questionId": "uuid",
-      "statement": "题目陈述",
-      "imageUrl": "https://example.com/question.jpg",
-      "isPure": true,
-      "explanation": "题目解释"
+      "questionId": "25b72be2-c2bc-4aaf-b321-060aac9483ab",
+      "statement": "智人是历史上唯一存在过的人类物种。",
+      "imageUrl": null,
+      "isPure": false,
+      "explanation": "错误。历史上曾存在多个人类物种，如尼安德特人。智人最终胜出并成为唯一幸存的人种。"
     }
   ],
-  "totalCount": 20
+  "totalCount": 1
 }
 ```
+
+**错误码:**
+- `BOOK_NOT_FOUND`: 书籍不存在或未发布
+- `QUESTIONS_FETCH_ERROR`: 获取题目失败
+- `UNAUTHORIZED`: 未授权访问
+
+#### POST /books/:bookId/generate-questions
+基于书籍信息和现有题目，调用AI服务生成新的高质量题目
+
+**Headers:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**请求参数:**
+- `bookId`: 书籍UUID (路径参数)
+
+**AI生成工作流程:**
+1. **数据收集阶段**: 获取书籍基本信息（标题、作者）和现有主题列表
+2. **主题生成阶段**: 使用DeepSeek AI基于书籍内容生成新的核心主题，并保存到themes表
+3. **角度分配阶段**: 后端随机为每个主题分配创意角度（如"实践应用"、"批判性思考"等）
+4. **题目生成阶段**: 基于主题和指定角度生成具体的判断题，关联对应的themeId
+5. **数据存储阶段**: 将生成的题目批量插入数据库并更新书籍统计
+
+**响应示例:**
+```json
+{
+  "message": "Questions generated successfully",
+  "result": {
+    "bookId": "44b16a72-429a-47ab-9fab-7aab94b341c6",
+    "bookTitle": "《人类简史》",
+    "questions": [
+      {
+        "questionId": "new-uuid-1",
+        "bookId": "44b16a72-429a-47ab-9fab-7aab94b341c6",
+        "statement": "认知革命使智人能够创造虚构的概念，如宗教、货币和法律。",
+        "imageUrl": null,
+        "isPure": true,
+        "explanation": "正确。认知革命约发生在7万年前，使智人具备了创造和相信虚构概念的能力，这是智人能够大规模合作的关键。",
+        "createdAt": "2025-01-15T08:00:52.632703+00:00",
+        "updatedAt": "2025-01-15T08:00:52.632703+00:00"
+      }
+    ],
+    "totalGenerated": 5,
+    "newQuestionCount": 8
+  }
+}
+```
+
+**错误码:**
+- `BOOK_NOT_FOUND`: 书籍不存在或未发布
+- `QUESTIONS_FETCH_ERROR`: 获取现有题目失败
+- `AI_SERVICE_ERROR`: AI服务调用失败
+- `INVALID_AI_RESPONSE`: AI返回数据格式无效
+- `QUESTIONS_INSERT_ERROR`: 题目插入数据库失败
+- `UNAUTHORIZED`: 未授权访问
 
 ### 进度接口 (`/progress`)
 
@@ -257,6 +345,55 @@ InkyBeanService/
 - **utils/corruptionCalculator.js**: 实现艾宾浩斯遗忘曲线的腐蚀度计算算法
 - **index.js**: Express 应用主入口，配置中间件和路由
 - **API_DOCUMENTATION.md**: 面向前端开发工程师的详细接口文档
+
+## AI题目生成系统
+
+### 两阶段生成架构
+
+Cobean采用创新的两阶段AI生成架构，确保题目的高质量和多样性：
+
+#### 阶段1：主题提取与生成
+- **输入**: 书籍标题、作者、现有主题列表
+- **处理**: DeepSeek AI分析书籍核心内容，生成新的主题
+- **输出**: 3-5个核心主题文本
+- **去重**: 自动过滤与现有主题重复的内容
+
+#### 阶段2：角度化题目生成
+- **角度分配**: 后端随机为每个主题分配创意角度：
+  - 实践应用 (practical_application)
+  - 批判性思考 (critical_thinking)  
+  - 概念理解 (conceptual_understanding)
+  - 历史对比 (historical_comparison)
+  - 现实关联 (real_world_connection)
+- **题目生成**: 基于主题+角度组合生成具体判断题
+- **质量保证**: 每道题包含准确的解释和推理过程
+
+### AI服务配置
+
+```javascript
+// DeepSeek API 配置
+const DEEPSEEK_CONFIG = {
+  apiUrl: process.env.DEEPSEEK_API_URL,
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  model: "deepseek-chat",
+  timeout: 60000, // 60秒超时
+  maxTokens: 2000
+};
+```
+
+- **API提供商**：DeepSeek
+- **模型**：deepseek-chat
+- **超时设置**：60秒
+- **错误处理**：自动重试机制
+
+### 提示词工程
+
+系统使用精心设计的提示词模板，确保AI生成符合要求的内容：
+
+- **主题生成提示词**: 引导AI提取书籍核心概念
+- **题目生成提示词**: 基于主题和角度生成判断题
+- **格式约束**: 严格的JSON输出格式要求
+- **质量标准**: 明确的题目质量和难度要求
 
 ## 腐蚀度计算逻辑
 
@@ -377,6 +514,78 @@ CMD ["npm", "start"]
 
 ## Changelog
 
+### Version 1.4.0 (2025-01-15)
+**DeepSeek參數優化**
+- ✅ **PromptA優化**：主題提取階段採用高創造力配置
+  - Temperature: 1.0（範圍0.9-1.2）最大化創造力，尋找新角度
+  - Max Tokens: 2048，提供充足的token空間
+- ✅ **PromptB優化**：問題生成階段採用平衡配置
+  - Temperature: 0.7（範圍0.6-0.8）平衡創意與穩定，遵循指令
+  - Max Tokens: 4096，支持批量生成更多內容
+
+**技術改進**
+- 🔧 **參數化API調用**：`callDeepSeekAPI`函數支持動態參數配置
+- 🔧 **階段性優化**：不同生成階段使用最適合的AI參數
+- 🔧 **性能提升**：更大的token限制提升內容生成質量
+
+**配置說明**
+- 📊 **創造力最大化**：主題提取使用高temperature激發創新思維
+- 📊 **穩定性保證**：問題生成使用適中temperature確保指令遵循
+- 📊 **容量擴展**：增加max_tokens支持更豐富的內容生成
+
+**測試驗證**
+- ✅ 參數優化後的生成測試通過
+- ✅ 兩階段配置協調性驗證完成
+- ✅ 生成質量和穩定性測試通過
+
+### 2025-01-14 - 添加请求响应日志功能
+- **新增功能**: 实现详细的请求和响应日志记录
+- **实现内容**:
+  1. 创建 `middleware/logger.js` 日志中间件
+  2. 记录请求信息：时间戳、HTTP方法、路径、IP地址、请求头、请求体（敏感信息已脱敏）
+  3. 记录响应信息：响应时间、状态码、响应数据（过长时截断）
+  4. 提供状态分类：成功(2xx)、客户端错误(4xx)、服务器错误(5xx)
+  5. 集成到主应用 `index.js` 中，位于body解析中间件之后
+- **测试验证**: 通过 `/health` 和 `/auth/wechat` 接口验证日志功能正常工作
+- **影响**: 提升系统可观测性，便于问题排查和性能监控
+
+### 2025-01-14 - 修复书籍题目接口RLS权限问题
+- **问题**: `GET /books/:bookId/questions` 接口返回404错误，提示"Book not found or not published"
+- **原因**: 代码使用普通 `supabase` 客户端查询书籍信息，受到 Row Level Security (RLS) 策略限制
+- **解决方案**:
+  1. 修改 `routes/books.js` 中的书籍验证查询，使用 `supabaseAdmin` 替代 `supabase`
+  2. 修改题目数据查询，同样使用 `supabaseAdmin` 绕过RLS限制
+- **测试验证**: `GET /books/44b16a72-429a-47ab-9fab-7aab94b341c6/questions` 现在正确返回200状态码和题目数据
+- **影响**: 书籍题目接口现在能正确获取已发布书籍的题目列表
+
+### 2025-01-14 - 更新API文档格式
+- **更新内容**: 
+  1. 修正 `API_DOCUMENTATION.md` 中 `/books/:bookId/questions` 接口的响应格式
+  2. 更新响应示例，使用真实的数据库数据
+  3. 修正字段说明，移除不存在的 `options` 字段
+  4. 更新错误码描述，明确"书籍不存在或未发布"的含义
+  5. 同步更新 `backend.md` 文档中的相应接口描述
+- **影响**: API文档现在准确反映实际的接口行为和返回格式
+
+### 2025-01-14 - 新增AI题目生成接口
+- **新增**: `POST /books/:bookId/generate-questions` 接口，支持基于书籍内容智能生成高质量题目
+- **功能特性**:
+  1. 集成 DeepSeek API，基于书籍标题、作者和现有题目生成新题目
+  2. 智能去重机制，确保生成的题目与现有题目不重复
+  3. 高质量题目生成，包含核心概念测试和详细解释
+  4. 自动插入数据库并更新书籍题目计数
+  5. 完整的错误处理和日志记录
+- **技术实现**:
+  - 使用 Axios 调用 DeepSeek Chat Completions API
+  - 实现 `buildPrompt` 函数构建上下文提示词
+  - 实现 `callDeepSeekAPI` 函数处理 AI 服务调用
+  - 批量插入题目到 `questions` 表
+  - 自动更新 `books` 表的 `questionCount` 字段
+- **环境配置**: 新增 `DEEPSEEK_API_KEY` 和 `DEEPSEEK_API_URL` 环境变量
+- **测试覆盖**: 添加基础单元测试验证接口认证和参数验证
+- **文档更新**: 同步更新 API_DOCUMENTATION.md 和 backend.md
+- **影响**: 为内容管理员提供了高效的题目生成工具，大幅提升题目创建效率
+
 ### 2025-01-14 - 创建前端接口文档
 - **新增**: 创建 `API_DOCUMENTATION.md` 文件，为前端开发工程师提供详细的接口说明
 - **内容包含**:
@@ -410,6 +619,70 @@ CMD ["npm", "start"]
   2. 执行数据库迁移，修复触发器函数使用正确的字段名 `"updatedAt"`
   3. 触发器现在能正确自动更新 `updatedAt` 字段
 - **影响**: 学习进度提交接口现在能正确创建和更新用户进度记录
+
+### Version 1.3.0 (2025-01-15)
+- ✅ 新增主题数据持久化功能
+- **新增功能**:
+  1. **主题数据持久化**: AI生成的新主题现在会自动保存到themes表中
+  2. **题目主题关联**: questions表新增themeId字段，建立题目与主题的关联关系
+  3. **数据库架构优化**: 完善了themes和questions表之间的外键关系
+- **技术改进**:
+  1. **数据完整性**: 通过外键约束确保数据一致性
+  2. **查询性能**: 为questions表的themeId字段添加索引
+  3. **关联逻辑**: 优化题目生成时的主题分配算法
+- **数据库变更**:
+  1. 为questions表添加themeId字段（uuid, foreign key）
+  2. 创建idx_questions_theme_id索引提升查询性能
+  3. 建立themes表与questions表的外键关联
+- **API响应增强**:
+  1. POST /books/:bookId/generate-questions 现在返回themesInserted信息
+  2. 题目数据包含themeId字段，支持主题追溯
+- **测试验证**:
+  1. 验证主题保存功能正常工作
+  2. 确认题目与主题的正确关联
+  3. 测试数据库约束和索引性能
+- **影响**: 建立了完整的主题-题目关联体系，为后续的主题分析和个性化推荐奠定基础
+
+### Version 1.2.0 (2025-01-15)
+- ✅ 实现两阶段AI题目生成架构
+- **重大更新**: 升级AI题目生成系统，采用创新的两阶段生成架构
+- **新功能**:
+  1. **阶段1 - 主题生成**: 基于书籍内容和现有主题，使用DeepSeek AI生成新的核心主题
+  2. **阶段2 - 角度化题目生成**: 为每个主题随机分配创意角度，生成多样化的判断题
+  3. **智能去重**: 自动避免与现有主题和题目的重复
+  4. **质量保证**: 每道题目包含详细的解释和推理过程
+- **技术改进**:
+  1. 修复themes表结构不匹配问题，更新`extractExistingThemes`函数
+  2. 增加API调用超时时间至60秒，提升稳定性
+  3. 完善错误处理机制，包含详细的错误分类和日志
+  4. 更新SQL迁移文件，反映实际的themes表结构
+- **创意角度系统**: 
+  - 实践应用 (practical_application)
+  - 批判性思考 (critical_thinking)
+  - 概念理解 (conceptual_understanding)
+  - 历史对比 (historical_comparison)
+  - 现实关联 (real_world_connection)
+- **测试验证**: 通过完整的端到端测试，成功生成10道高质量题目
+- **文档更新**: 完善backend.md，添加AI生成系统详细说明和工作流程
+- **影响**: 大幅提升题目生成的质量、多样性和系统稳定性
+
+### Version 1.1.0 (2025-01-15)
+- ✅ 新增AI题目生成接口 `POST /books/:bookId/generate-questions`
+- **功能**: 使用DeepSeek AI为指定书籍生成新的判断题
+- **特性**:
+  1. 集成DeepSeek AI API，基于书籍内容和现有题目生成新题目
+  2. 自动避免重复题目，确保题目多样性
+  3. 生成的题目包含陈述、正确性判断和详细解释
+  4. 支持批量生成（默认5道题目）
+  5. 自动更新书籍的题目计数
+- **技术实现**:
+  1. 添加DeepSeek API配置和调用函数
+  2. 实现智能提示词工程，确保AI生成高质量题目
+  3. 添加JSON响应解析和错误处理
+  4. 实现数据库事务确保数据一致性
+- **安全性**: 需要JWT认证，验证用户身份
+- **错误处理**: 完善的错误码体系，包括AI服务错误、数据格式错误等
+- **影响**: 为应用提供了动态题目生成能力，大幅提升内容丰富度
 
 ### Version 1.0.1 (2024-01-14)
 - ✅ 修复书籍列表接口的数据库查询问题
@@ -445,6 +718,6 @@ CMD ["npm", "start"]
 
 ---
 
-**最后更新**: 2024-01-14  
-**文档版本**: 1.0.0  
+**最后更新**: 2025-01-15  
+**文档版本**: 1.2.0  
 **维护者**: Cobean 开发团队
