@@ -1,6 +1,6 @@
 # Cobean iOS App Backend Documentation
 
-**版本**: 1.4.0  
+**版本**: 1.5.0  
 **最后更新**: 2025-01-15
 
 ## Overview
@@ -432,6 +432,9 @@ function calculateCorruptionLevel(lastAttemptedAt) {
 ### 环境要求
 - Node.js >= 16.0.0
 - npm >= 8.0.0
+- PM2 (生产环境进程管理)
+- Nginx (反向代理)
+- Git (代码拉取)
 - Supabase 项目
 
 ### 本地开发设置
@@ -458,29 +461,300 @@ npm run dev
 
 ### 生产部署
 
-1. **设置环境变量**
+#### 方式一：使用自动化部署脚本
+
+1. **使用部署脚本**
 ```bash
-export NODE_ENV=production
-export PORT=3000
-export SUPABASE_URL=your_supabase_url
-export SUPABASE_ANON_KEY=your_anon_key
-export JWT_SECRET=your_jwt_secret
+# 赋予执行权限
+chmod +x deploy.sh
+
+# 执行部署（首次部署）
+./deploy.sh --clean-install
+
+# 常规部署
+./deploy.sh
+
+# 查看帮助
+./deploy.sh --help
 ```
 
-2. **启动生产服务**
+2. **部署脚本功能**
+- 自动从GitHub拉取最新代码
+- 检查系统依赖（git, node, npm, pm2）
+- 创建自动备份
+- 安装/更新依赖
+- 配置生产环境变量
+- 使用PM2启动服务
+- 执行健康检查
+- 自动清理旧备份
+- 支持回滚功能
+
+#### 方式二：手动部署
+
+1. **安装系统依赖**
 ```bash
-npm start
+# 安装Node.js和npm
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# 安装PM2
+sudo npm install -g pm2
+
+# 安装Nginx
+sudo apt-get install -y nginx
+```
+
+2. **配置生产环境**
+```bash
+# 克隆代码
+git clone https://github.com/your-username/cobean-ios-backend.git /var/www/cobean-backend
+cd /var/www/cobean-backend
+
+# 安装依赖
+npm ci --production
+
+# 配置环境变量
+cp .env.production .env
+# 编辑 .env 文件，填入正确的配置
+```
+
+3. **配置PM2**
+```bash
+# 使用PM2配置文件启动
+pm2 start ecosystem.config.js --env production
+
+# 设置PM2开机自启
+pm2 startup
+pm2 save
+```
+
+4. **配置Nginx**
+```bash
+# 复制Nginx配置
+sudo cp nginx.conf /etc/nginx/sites-available/cobean-backend
+
+# 创建软链接
+sudo ln -s /etc/nginx/sites-available/cobean-backend /etc/nginx/sites-enabled/
+
+# 测试配置
+sudo nginx -t
+
+# 重启Nginx
+sudo systemctl restart nginx
+```
+
+5. **配置SSL证书（推荐）**
+```bash
+# 安装Certbot
+sudo apt-get install -y certbot python3-certbot-nginx
+
+# 获取SSL证书
+sudo certbot --nginx -d api.cobean.app
+
+# 设置自动续期
+sudo crontab -e
+# 添加：0 12 * * * /usr/bin/certbot renew --quiet
+```
+
+### 部署文件说明
+
+#### deploy.sh
+自动化部署脚本，包含以下功能：
+- 代码拉取和备份
+- 依赖管理
+- 环境配置
+- 服务启动
+- 健康检查
+- 回滚支持
+
+#### .env.production
+生产环境配置模板，包含：
+- 数据库连接配置
+- JWT密钥配置
+- DeepSeek AI配置
+- 安全和监控配置
+
+#### ecosystem.config.js
+PM2进程管理配置，包含：
+- 集群模式配置
+- 日志管理
+- 自动重启策略
+- 性能监控
+- 部署配置
+
+#### nginx.conf
+Nginx反向代理配置，包含：
+- 负载均衡配置
+- SSL/TLS配置
+- 安全头设置
+- 请求限制
+- 静态文件服务
+
+### 监控和维护
+
+1. **PM2监控**
+```bash
+# 查看进程状态
+pm2 status
+
+# 查看日志
+pm2 logs cobean-backend
+
+# 重启服务
+pm2 restart cobean-backend
+
+# 监控面板
+pm2 monit
+```
+
+2. **Nginx监控**
+```bash
+# 查看Nginx状态
+sudo systemctl status nginx
+
+# 查看访问日志
+sudo tail -f /var/log/nginx/cobean-backend.access.log
+
+# 查看错误日志
+sudo tail -f /var/log/nginx/cobean-backend.error.log
+```
+
+3. **系统监控**
+```bash
+# 查看系统资源
+htop
+
+# 查看磁盘使用
+df -h
+
+# 查看内存使用
+free -h
+```
+
+### 故障排除
+
+1. **服务无法启动**
+```bash
+# 检查端口占用
+sudo netstat -tlnp | grep :3000
+
+# 检查PM2日志
+pm2 logs cobean-backend --lines 50
+
+# 检查环境变量
+pm2 env 0
+```
+
+2. **数据库连接问题**
+```bash
+# 测试Supabase连接
+curl -H "apikey: YOUR_ANON_KEY" https://your-project.supabase.co/rest/v1/
+
+# 检查环境变量配置
+grep SUPABASE .env
+```
+
+3. **Nginx配置问题**
+```bash
+# 测试Nginx配置
+sudo nginx -t
+
+# 重新加载配置
+sudo nginx -s reload
+
+# 检查端口监听
+sudo netstat -tlnp | grep :80
+sudo netstat -tlnp | grep :443
 ```
 
 ### Docker 部署（可选）
+
+1. **Dockerfile**
 ```dockerfile
-FROM node:16-alpine
+FROM node:18-alpine
+
+# 设置工作目录
 WORKDIR /app
+
+# 复制package文件
 COPY package*.json ./
-RUN npm ci --only=production
+
+# 安装依赖
+RUN npm ci --only=production && npm cache clean --force
+
+# 复制源代码
 COPY . .
+
+# 创建非root用户
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# 更改文件所有权
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+# 暴露端口
 EXPOSE 3000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# 启动应用
 CMD ["npm", "start"]
+```
+
+2. **docker-compose.yml**
+```yaml
+version: '3.8'
+
+services:
+  cobean-backend:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - cobean-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - cobean-backend
+    restart: unless-stopped
+    networks:
+      - cobean-network
+
+networks:
+  cobean-network:
+    driver: bridge
+```
+
+3. **Docker部署命令**
+```bash
+# 构建和启动
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+
+# 更新部署
+docker-compose pull && docker-compose up -d
 ```
 
 ## Security Features
@@ -513,6 +787,36 @@ CMD ["npm", "start"]
 - `INTERNAL_ERROR`: 服务器内部错误
 
 ## Changelog
+
+### Version 1.5.0 (2025-01-15)
+- ✅ 新增完整的生产部署解决方案
+- **新增功能**:
+  1. **自动化部署脚本**: 创建 `deploy.sh` 脚本，支持一键部署
+  2. **生产环境配置**: 提供 `.env.production` 模板，包含完整的生产环境配置
+  3. **PM2进程管理**: 配置 `ecosystem.config.js`，支持集群模式和自动重启
+  4. **Nginx反向代理**: 提供完整的 `nginx.conf` 配置，包含SSL、负载均衡和安全设置
+- **部署脚本功能**:
+  1. 自动从GitHub拉取最新代码
+  2. 系统依赖检查（git, node, npm, pm2）
+  3. 自动备份和回滚机制
+  4. 环境变量配置
+  5. 健康检查和日志记录
+- **生产环境优化**:
+  1. PM2集群模式，充分利用多核CPU
+  2. Nginx负载均衡和请求限制
+  3. SSL/TLS安全配置
+  4. 日志管理和监控
+  5. 自动重启和故障恢复
+- **Docker支持**:
+  1. 优化的Dockerfile配置
+  2. docker-compose.yml编排文件
+  3. 健康检查和安全配置
+- **文档更新**:
+  1. 详细的部署指南
+  2. 监控和维护说明
+  3. 故障排除指南
+  4. 安全最佳实践
+- **影响**: 提供了完整的生产部署解决方案，大幅简化了部署流程和运维管理
 
 ### Version 1.4.0 (2025-01-15)
 **DeepSeek參數優化**
@@ -719,5 +1023,5 @@ CMD ["npm", "start"]
 ---
 
 **最后更新**: 2025-01-15  
-**文档版本**: 1.2.0  
+**文档版本**: 1.5.0  
 **维护者**: Cobean 开发团队
