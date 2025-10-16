@@ -15,7 +15,7 @@ const cozeRoutes = require('./routes/coze');
 const logger = require('./middleware/logger');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Security middleware
 app.use(helmet());
