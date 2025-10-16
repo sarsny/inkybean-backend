@@ -7,11 +7,19 @@ set -e  # 遇到错误立即退出
 
 # 配置变量
 PROJECT_NAME="cobean-backend"
-REPO_URL="https://github.com/your-username/cobean-ios-backend.git"  # 请替换为实际的仓库地址
+REPO_URL="https://github.com/sarsny/inkybean-backend.git"
 DEPLOY_DIR="/var/www/cobean-backend"
 BACKUP_DIR="/var/backups/cobean-backend"
 SERVICE_NAME="cobean-backend"
 NODE_VERSION="18"
+
+# GitHub 认证配置 (用于私有仓库)
+# 方法1: 使用 Personal Access Token
+# GITHUB_TOKEN="your_personal_access_token_here"
+# REPO_URL_WITH_TOKEN="https://${GITHUB_TOKEN}@github.com/sarsny/inkybean-backend.git"
+
+# 方法2: 使用 SSH Key (需要在服务器上配置SSH密钥)
+# REPO_URL_SSH="git@github.com:sarsny/inkybean-backend.git"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -107,14 +115,42 @@ create_backup() {
 pull_code() {
     log_info "拉取最新代码..."
     
+    # 确定使用的仓库URL
+    local EFFECTIVE_REPO_URL="$REPO_URL"
+    
+    # 如果设置了GitHub Token，使用带Token的URL
+    if [ -n "$GITHUB_TOKEN" ]; then
+        EFFECTIVE_REPO_URL="https://${GITHUB_TOKEN}@github.com/sarsny/inkybean-backend.git"
+        log_info "使用 Personal Access Token 进行认证"
+    elif [ -n "$REPO_URL_SSH" ]; then
+        EFFECTIVE_REPO_URL="$REPO_URL_SSH"
+        log_info "使用 SSH Key 进行认证"
+    fi
+    
     if [ -d "$DEPLOY_DIR" ]; then
         cd "$DEPLOY_DIR"
         
+        # 检查是否是Git仓库
+        if [ ! -d ".git" ]; then
+            log_error "部署目录存在但不是Git仓库，将重新克隆"
+            cd ..
+            rm -rf "$DEPLOY_DIR"
+            git clone "$EFFECTIVE_REPO_URL" "$DEPLOY_DIR"
+            cd "$DEPLOY_DIR"
+            log_success "仓库重新克隆完成"
+            return
+        fi
+        
         # 检查是否有未提交的更改
-        if [ -n "$(git status --porcelain)" ]; then
+        if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
             log_warning "检测到未提交的更改，将被重置"
             git reset --hard HEAD
             git clean -fd
+        fi
+        
+        # 更新远程URL（如果使用Token）
+        if [ -n "$GITHUB_TOKEN" ]; then
+            git remote set-url origin "$EFFECTIVE_REPO_URL"
         fi
         
         # 拉取最新代码
@@ -129,7 +165,7 @@ pull_code() {
         mkdir -p "$(dirname "$DEPLOY_DIR")"
         
         # 克隆仓库
-        git clone "$REPO_URL" "$DEPLOY_DIR"
+        git clone "$EFFECTIVE_REPO_URL" "$DEPLOY_DIR"
         cd "$DEPLOY_DIR"
         
         log_success "代码克隆完成"
