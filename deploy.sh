@@ -6,11 +6,11 @@
 set -e  # 遇到错误立即退出
 
 # 配置变量
-PROJECT_NAME="cobean-backend"
+PROJECT_NAME="inkybean-backend"
 REPO_URL="https://github.com/sarsny/inkybean-backend.git"
-DEPLOY_DIR="/var/www/cobean-backend"
-BACKUP_DIR="/var/backups/cobean-backend"
-SERVICE_NAME="cobean-backend"
+DEPLOY_DIR="/var/www/inkybean-backend"
+BACKUP_DIR="/var/backups/inkybean-backend"
+SERVICE_NAME="inkybean-backend"
 NODE_VERSION="18"
 
 # GitHub 认证配置 (用于私有仓库)
