@@ -100,7 +100,15 @@ case $ENV in
     "dev"|"development")
         echo -e "${GREEN}🚀 启动开发环境...${NC}"
         export NODE_ENV=development
-        npm run dev &
+        # 检查 nodemon 是否可用
+        if command -v nodemon &> /dev/null || [ -x "node_modules/.bin/nodemon" ]; then
+            npm run dev &
+        else
+            echo -e "${YELLOW}⚠️  未检测到 nodemon，开发模式将降级为普通运行${NC}"
+            echo -e "${YELLOW}   解决方案：运行 'npm install -D nodemon' 安装开发依赖${NC}"
+            echo -e "${YELLOW}   或者使用生产模式启动：'./start.sh production'${NC}"
+            node index.js &
+        fi
         ;;
     "prod"|"production")
         echo -e "${GREEN}🚀 启动生产环境...${NC}"
