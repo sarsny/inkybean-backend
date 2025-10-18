@@ -1,8 +1,8 @@
 module.exports = {
   apps: [{
     name: 'inkybean-backend',
-    script: 'index.js',
-    cwd: '/Users/sarsny/AIworkspace/cursor/cobean-ios-2/iosapp/InkyBean/InkyBeanService',
+    script: './index.js',
+    cwd: process.cwd(),
     
     // 实例配置
     instances: 1,  // 只启动一个实例，防止端口冲突
@@ -49,29 +49,29 @@ module.exports = {
     source_map_support: true,
     
     // 部署配置
-    deploy: {
-      production: {
-        user: 'sarsny',
-        host: 'localhost',
-        ref: 'origin/main',
-        repo: 'git@github.com:username/inkybean-backend.git',
-        path: '/Users/sarsny/AIworkspace/cursor/cobean-ios-2/iosapp/InkyBean/InkyBeanService',
-        'pre-deploy-local': '',
-        'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',
-        'pre-setup': ''
-      }
-    }
-  }],
-  
-  // 全局配置
-  deploy: {
-    production: {
-      user: 'sarsny',
-      host: 'localhost',
-      ref: 'origin/main',
-      repo: 'git@github.com:username/inkybean-backend.git',
-      path: '/Users/sarsny/AIworkspace/cursor/cobean-ios-2/iosapp/InkyBean/InkyBeanService',
-      'post-deploy': 'npm install && pm2 startOrRestart ecosystem.config.js --env production'
-    }
-  }
+     deploy: {
+       production: {
+         user: 'sarsny',
+         host: 'localhost',
+         ref: 'origin/main',
+         repo: 'git@github.com:username/inkybean-backend.git',
+         path: './deploy',
+         'pre-deploy-local': '',
+         'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',
+         'pre-setup': ''
+       }
+     }
+   }],
+   
+   // 全局配置
+   deploy: {
+     production: {
+       user: 'sarsny',
+       host: 'localhost',
+       ref: 'origin/main',
+       repo: 'git@github.com:username/inkybean-backend.git',
+       path: './deploy',
+       'post-deploy': 'npm install && pm2 startOrRestart ecosystem.config.js --env production'
+     }
+   }
 };

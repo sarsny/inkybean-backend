@@ -152,6 +152,34 @@ health_check() {
   echo "$code"
 }
 
+# 获取服务PID
+get_service_pid() {
+    if command -v pm2 &> /dev/null && pm2 list | grep -q "$SERVICE_NAME"; then
+        pm2 jlist | jq -r ".[] | select(.name == \"$SERVICE_NAME\") | .pid" 2>/dev/null || echo ""
+    else
+        # 传统方式查找
+        pgrep -f "node.*index.js" | head -1 || echo ""
+    fi
+}
+
+# 检查端口监听状态
+check_port_listening() {
+    local port="$1"
+    if lsof -i ":$port" -sTCP:LISTEN &>/dev/null; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+# 检查健康端点
+check_health_endpoint() {
+    local port="$1"
+    local response
+    response=$(curl -s -w "%{http_code}" -o /dev/null "http://127.0.0.1:$port$HEALTH_PATH" 2>/dev/null || echo "000")
+    echo "$response"
+}
+
 # 分析崩溃原因
 analyze_crash_reason() {
     local error_log="$1"
@@ -182,7 +210,10 @@ analyze_crash_reason() {
     local health_status=$(check_health_endpoint "$PORT")
     
     # 综合判断崩溃原因
-    if [[ "$port_listening" == "false" && "$pid" != "" ]]; then
+    if [[ "$pid" != "" && "$port_listening" == "true" && "$health_status" == "200" ]]; then
+        # 服务正常运行
+        echo "服务正常"
+    elif [[ "$port_listening" == "false" && "$pid" != "" ]]; then
         # 进程存在但端口未监听 - 可能是启动失败
         if echo -e "$all_logs" | grep -qi "EADDRINUSE\|address already in use"; then
             echo "端口被占用"
@@ -325,17 +356,12 @@ check_once() {
 
   local pid="" running=false listening=false code
 
-  if is_pm2_available && pm2 list | grep -q "$SERVICE_NAME"; then
-    pid=$(pm2_pid)
-    if [ -n "$pid" ] && is_process_running "$pid"; then running=true; fi
-  else
-    pid=$(get_server_pid)
-    if [ -n "$pid" ] && is_process_running "$pid"; then running=true; fi
-  fi
+  pid=$(get_service_pid)
+  if [ -n "$pid" ] && is_process_running "$pid"; then running=true; fi
 
-  if is_port_listening; then listening=true; fi
+  if [ "$(check_port_listening "$PORT")" = "true" ]; then listening=true; fi
 
-  code=$(health_check)
+  code=$(check_health_endpoint "$PORT")
 
   vlog "PID=$pid running=$running listening=$listening health_code=$code"
 
