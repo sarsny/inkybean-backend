@@ -152,6 +152,89 @@ health_check() {
   echo "$code"
 }
 
+# 分析崩溃原因
+analyze_crash_reason() {
+    local error_log="$1"
+    local combined_log="$2"
+    local out_log="$3"
+    
+    # 检查最近的错误日志
+    local recent_errors=""
+    if [[ -f "$error_log" ]]; then
+        recent_errors=$(tail -100 "$error_log" 2>/dev/null)
+    fi
+    
+    local recent_combined=""
+    if [[ -f "$combined_log" ]]; then
+        recent_combined=$(tail -100 "$combined_log" 2>/dev/null)
+    fi
+    
+    local recent_out=""
+    if [[ -f "$out_log" ]]; then
+        recent_out=$(tail -100 "$out_log" 2>/dev/null)
+    fi
+    
+    local all_logs="$recent_errors\n$recent_combined\n$recent_out"
+    
+    # 检查服务状态
+    local pid=$(get_service_pid)
+    local port_listening=$(check_port_listening "$PORT")
+    local health_status=$(check_health_endpoint "$PORT")
+    
+    # 综合判断崩溃原因
+    if [[ "$port_listening" == "false" && "$pid" != "" ]]; then
+        # 进程存在但端口未监听 - 可能是启动失败
+        if echo -e "$all_logs" | grep -qi "EADDRINUSE\|address already in use"; then
+            echo "端口被占用"
+        elif echo -e "$all_logs" | grep -qi "JsonWebTokenError\|TOKEN_VERIFICATION_FAILED\|jwt.*invalid\|jwt.*malformed"; then
+            echo "JWT校验失败"
+        elif echo -e "$all_logs" | grep -qi "MODULE_NOT_FOUND\|Cannot find module"; then
+            echo "依赖缺失"
+        elif echo -e "$all_logs" | grep -qi "SyntaxError\|ReferenceError\|TypeError"; then
+            echo "代码异常"
+        else
+            echo "服务启动失败"
+        fi
+    elif [[ "$pid" == "" ]]; then
+        # 进程不存在 - 服务崩溃
+        if echo -e "$all_logs" | grep -qi "heap out of memory\|Out of memory\|Allocation failed\|Maximum call stack"; then
+            echo "内存不足(OOM)"
+        elif echo -e "$all_logs" | grep -qi "SIGKILL\|killed\|Process terminated"; then
+            echo "进程被强制终止"
+        elif echo -e "$all_logs" | grep -qi "Uncaught Exception\|UnhandledPromiseRejection"; then
+            echo "未捕获异常"
+        elif echo -e "$all_logs" | grep -qi "ECONNREFUSED\|ETIMEDOUT\|ECONNRESET"; then
+            echo "网络连接错误"
+        else
+            echo "服务进程崩溃"
+        fi
+    elif [[ "$health_status" != "200" ]]; then
+        # 进程存在，端口监听，但健康检查失败
+        if echo -e "$all_logs" | grep -qi "JsonWebTokenError\|TOKEN_VERIFICATION_FAILED\|jwt.*invalid"; then
+            echo "JWT校验失败"
+        elif echo -e "$all_logs" | grep -qi "Supabase.*error\|Database.*fail\|connection.*timeout"; then
+            echo "数据库/Supabase错误"
+        elif echo -e "$all_logs" | grep -qi "RATE_LIMIT_EXCEEDED\|Too many requests\|429"; then
+            echo "请求频率限制"
+        elif echo -e "$all_logs" | grep -qi "AxiosError\|timeout\|network error\|fetch.*fail"; then
+            echo "HTTP请求错误"
+        elif echo -e "$all_logs" | grep -qi "DEPTH_ZERO_SELF_SIGNED_CERT\|UNABLE_TO_VERIFY_LEAF_SIGNATURE\|certificate"; then
+            echo "SSL证书错误"
+        else
+            echo "服务响应异常"
+        fi
+    else
+        # 其他情况
+        if echo -e "$all_logs" | grep -qi "EADDRINUSE\|address already in use"; then
+            echo "端口被占用"
+        elif echo -e "$all_logs" | grep -qi "ENOENT\|No such file"; then
+            echo "文件缺失"
+        else
+            echo "服务状态异常"
+        fi
+    fi
+}
+
 # 检测崩溃原因（从日志中匹配常见错误）
 detect_crash_reason() {
   local reason="未知原因"
@@ -167,34 +250,12 @@ detect_crash_reason() {
     echo "$reason|未找到日志文件"; return
   fi
 
-  local last_lines
-  last_lines=$(tail -n 200 "${sources[@]}" 2>/dev/null)
-
-  if echo "$last_lines" | grep -qiE 'EADDRINUSE|address already in use'; then
-    reason='端口被占用'
-  elif echo "$last_lines" | grep -qiE 'JsonWebTokenError|TOKEN_VERIFICATION_FAILED'; then
-    reason='JWT校验失败'
-  elif echo "$last_lines" | grep -qiE 'ECONNREFUSED|ETIMEDOUT|ECONNRESET'; then
-    reason='网络连接错误'
-  elif echo "$last_lines" | grep -qiE 'heap out of memory|Out of memory|Allocation failed'; then
-    reason='内存不足(OOM)'
-  elif echo "$last_lines" | grep -qiE 'SyntaxError|ReferenceError|TypeError'; then
-    reason='代码异常'
-  elif echo "$last_lines" | grep -qiE 'RATE_LIMIT_EXCEEDED|Too many requests'; then
-    reason='请求频率限制'
-  elif echo "$last_lines" | grep -qiE 'MODULE_NOT_FOUND'; then
-    reason='依赖缺失'
-  elif echo "$last_lines" | grep -qiE 'ENOENT'; then
-    reason='文件或目录缺失'
-  elif echo "$last_lines" | grep -qiE 'AxiosError|axios.*(timeout|network error)'; then
-    reason='HTTP请求错误'
-  elif echo "$last_lines" | grep -qiE 'SSL|DEPTH_ZERO_SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE'; then
-    reason='SSL证书错误'
-  elif echo "$last_lines" | grep -qiE 'Supabase|Database.*(error|failed)'; then
-    reason='数据库或Supabase错误'
-  fi
+  # 使用新的分析函数
+  reason=$(analyze_crash_reason "$LOG_DIR/error.log" "$LOG_DIR/combined.log" "$LOG_DIR/out.log")
 
   # 返回 reason 和摘要（截断）
+  local last_lines
+  last_lines=$(tail -n 200 "${sources[@]}" 2>/dev/null)
   detail=$(echo "$last_lines" | tail -n 10 | sed 's/|/-/g')
   echo "$reason|$detail"
 }
