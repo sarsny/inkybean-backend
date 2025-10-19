@@ -21,11 +21,21 @@ const authSchemas = {
   register: Joi.object({
     email: Joi.string().email().required(),
     password: Joi.string().min(6).required(),
-    username: Joi.string().min(2).max(50).optional()
+    username: Joi.string().min(3).max(50).required().pattern(/^[a-zA-Z0-9_]+$/).messages({
+      'string.pattern.base': '用户名只能包含字母、数字和下划线',
+      'string.min': '用户名至少需要3个字符',
+      'string.max': '用户名不能超过50个字符'
+    }),
+    displayName: Joi.string().min(1).max(100).optional()
   }),
   
   login: Joi.object({
     email: Joi.string().email().required(),
+    password: Joi.string().required()
+  }),
+
+  usernameLogin: Joi.object({
+    username: Joi.string().min(3).max(50).required(),
     password: Joi.string().required()
   }),
 

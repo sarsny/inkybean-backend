@@ -300,7 +300,7 @@ router.get('/:bookId/questions', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /books/:bookId/generate-questions - 为指定书籍生成新题目（两阶段生成法）
+// POST /books/:bookId/generate-questions - 从指定书籍生成新题目（两阶段生成法）
 router.post('/:bookId/generate-questions', authenticateToken, async (req, res) => {
   try {
     const { bookId } = req.params;
@@ -902,6 +902,189 @@ For EACH theme object provided in the input list, generate one true/false questi
   ]
 }`;
 }
+
+// POST /books/:bookId/generate-questions-from-themes - 从指定书籍的现有主题中生成题目
+router.post('/:bookId/generate-questions-from-themes', authenticateToken, async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const { themeCount = 5 } = req.body; // 默认获取5个主题
+
+    // 1. 参数验证
+    if (!bookId) {
+      return res.status(400).json({
+        error: 'Book ID is required',
+        code: 'MISSING_BOOK_ID'
+      });
+    }
+
+    if (themeCount && (typeof themeCount !== 'number' || themeCount < 1 || themeCount > 20)) {
+      return res.status(400).json({
+        error: 'Theme count must be a number between 1 and 20',
+        code: 'INVALID_THEME_COUNT'
+      });
+    }
+
+    // 2. 验证书籍是否存在
+    const { data: book, error: bookError } = await supabaseAdmin
+      .from('books')
+      .select('*')
+      .eq('"bookId"', bookId)
+      .eq('"isPublished"', true)
+      .single();
+
+    if (bookError || !book) {
+      return res.status(404).json({
+        error: 'Book not found or not published',
+        code: 'BOOK_NOT_FOUND'
+      });
+    }
+
+    // 3. 获取书籍的所有现有主题
+    const { data: existingThemes, error: themesError } = await supabaseAdmin
+      .from('themes')
+      .select('id, themeText')
+      .eq('bookId', bookId);
+
+    if (themesError) {
+      console.error('Error fetching themes:', themesError);
+      return res.status(500).json({
+        error: 'Failed to fetch book themes',
+        code: 'THEMES_FETCH_ERROR'
+      });
+    }
+
+    if (!existingThemes || existingThemes.length === 0) {
+      return res.status(404).json({
+        error: 'No themes found for this book',
+        code: 'NO_THEMES_FOUND'
+      });
+    }
+
+    // 4. 随机选取指定数量的主题
+    const shuffledThemes = [...existingThemes].sort(() => Math.random() - 0.5);
+    const selectedThemes = shuffledThemes.slice(0, Math.min(themeCount, existingThemes.length));
+
+    console.log(`🎯 Selected ${selectedThemes.length} themes from ${existingThemes.length} available themes`);
+
+    // 5. 为选中的主题分配随机角度
+    const themesWithAngles = assignRandomAngles(selectedThemes.map(t => t.themeText));
+
+    // 6. 使用现有的第二阶段逻辑生成题目
+    console.log('📝 Generating questions for selected themes...');
+    let generatedQuestions;
+    try {
+      generatedQuestions = await generateQuestionsWithAngles(book.title, book.author, themesWithAngles);
+    } catch (error) {
+      console.error('Error generating questions:', error);
+      return res.status(500).json({
+        error: 'Failed to generate questions',
+        code: 'AI_SERVICE_ERROR'
+      });
+    }
+
+    if (!generatedQuestions || generatedQuestions.length === 0) {
+      return res.status(500).json({
+        error: 'No questions were generated',
+        code: 'NO_QUESTIONS_GENERATED'
+      });
+    }
+
+    // 7. 获取现有题目用于去重
+    const { data: existingQuestions, error: questionsError } = await supabaseAdmin
+      .from('questions')
+      .select('statement, explanation')
+      .eq('"bookId"', bookId);
+
+    if (questionsError) {
+      console.error('Error fetching existing questions:', questionsError);
+      return res.status(500).json({
+        error: 'Failed to fetch existing questions for deduplication',
+        code: 'QUESTIONS_FETCH_ERROR'
+      });
+    }
+
+    // 8. 去重处理
+    const uniqueQuestions = deduplicateQuestions(generatedQuestions, existingQuestions || []);
+
+    // 9. 为每个题目分配对应的themeId
+    console.log('🔗 Linking questions to themes...');
+    const questionsToInsert = uniqueQuestions.map((question, index) => {
+      // 根据题目索引找到对应的theme
+      const themeIndex = index % selectedThemes.length;
+      const correspondingTheme = selectedThemes[themeIndex];
+      
+      return {
+        bookId: bookId,
+        statement: question.statement,
+        imageUrl: null,
+        isPure: question.isPure,
+        explanation: question.explanation,
+        themeId: correspondingTheme.id
+      };
+    });
+
+    // 10. 保存生成的题目到数据库
+    const { data: insertedQuestions, error: insertError } = await supabaseAdmin
+      .from('questions')
+      .insert(questionsToInsert)
+      .select();
+
+    if (insertError) {
+      console.error('Error inserting questions:', insertError);
+      return res.status(500).json({
+        error: 'Failed to save generated questions',
+        code: 'QUESTIONS_INSERT_ERROR'
+      });
+    }
+
+    // 11. 更新书籍的题目数量
+    const newQuestionCount = book.questionCount + insertedQuestions.length;
+    const { error: updateError } = await supabaseAdmin
+      .from('books')
+      .update({ questionCount: newQuestionCount })
+      .eq('"bookId"', bookId);
+
+    if (updateError) {
+      console.error('Error updating book question count:', updateError);
+      // 不返回错误，因为题目已经成功插入
+    }
+
+    // 12. 格式化返回结果
+    const result = {
+      bookId: book.bookId,
+      bookTitle: book.title,
+      selectedThemes: selectedThemes.map(theme => ({
+        themeId: theme.id,
+        themeText: theme.themeText
+      })),
+      questions: insertedQuestions.map(question => ({
+        questionId: question.questionId,
+        statement: question.statement,
+        isPure: question.isPure,
+        explanation: question.explanation,
+        themeId: question.themeId
+      })),
+      summary: {
+        totalThemesAvailable: existingThemes.length,
+        themesSelected: selectedThemes.length,
+        questionsGenerated: insertedQuestions.length,
+        newQuestionCount: newQuestionCount
+      }
+    };
+
+    res.json({
+      message: 'Questions generated successfully from existing themes',
+      result: result
+    });
+
+  } catch (error) {
+    console.error('Error in POST /books/:bookId/generate-questions-from-themes:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
 
 // POST /books/:bookId/select - 用户选择要巩固的书籍
 router.post('/:bookId/select', authenticateToken, async (req, res) => {
