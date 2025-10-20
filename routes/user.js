@@ -11,7 +11,7 @@ router.get('/progress', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
 
     // 1. 获取用户的所有学习进度
-    const { data: userProgress, error: progressError } = await supabase
+    const { data: userProgress, error: progressError } = await supabaseAdmin
       .from('user_progress')
       .select('*')
       .eq('userId', userId);

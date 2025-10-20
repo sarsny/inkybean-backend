@@ -1194,6 +1194,109 @@ router.post('/:bookId/select', authenticateToken, async (req, res) => {
   }
 });
 
+// DELETE /books/:bookId/unselect - 用户删除书籍，解除绑定关系
+router.delete('/:bookId/unselect', authenticateToken, async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const userId = req.user.userId;
+
+    console.log(`尝试删除用户 ${userId} 的书籍 ${bookId}`);
+
+    // 1. 验证书籍是否存在
+    const { data: book, error: bookError } = await supabaseAdmin
+      .from('books')
+      .select('bookId, title, author')
+      .eq('bookId', bookId)
+      .single();
+
+    if (bookError || !book) {
+      console.log(`书籍 ${bookId} 不存在:`, bookError);
+      return res.status(404).json({
+        error: '书籍不存在',
+        code: 'BOOK_NOT_FOUND'
+      });
+    }
+
+    console.log(`找到书籍: ${book.title}`);
+
+    // 2. 检查用户是否已经选择过这本书
+    const { data: existingProgress, error: checkError } = await supabaseAdmin
+      .from('user_progress')
+      .select('progressId')
+      .eq('userId', userId)
+      .eq('bookId', bookId)
+      .single();
+
+    console.log(`查询用户进度结果:`, { existingProgress, checkError });
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 表示没有找到记录
+      console.error('检查用户进度时出错:', checkError);
+      return res.status(500).json({
+        error: '检查用户学习状态时出错',
+        code: 'DATABASE_ERROR'
+      });
+    }
+
+    // 3. 如果用户没有选择过这本书，返回错误
+    if (!existingProgress) {
+      console.log(`用户 ${userId} 尚未选择过书籍 ${bookId}`);
+      return res.status(404).json({
+        error: '您尚未选择过这本书籍',
+        code: 'PROGRESS_NOT_FOUND'
+      });
+    }
+
+    console.log(`找到用户进度记录: ${existingProgress.progressId}`);
+
+    // 4. 删除用户进度记录，解除绑定关系
+    const { data: deletedData, error: deleteError } = await supabaseAdmin
+      .from('user_progress')
+      .delete()
+      .eq('userId', userId)
+      .eq('bookId', bookId)
+      .select();
+
+    console.log(`删除操作结果:`, { deletedData, deleteError });
+
+    if (deleteError) {
+      console.error('删除用户进度记录失败:', deleteError);
+      return res.status(500).json({
+        error: '删除书籍失败',
+        code: 'DATABASE_DELETE_ERROR'
+      });
+    }
+
+    // 5. 验证删除是否成功
+    if (!deletedData || deletedData.length === 0) {
+      console.error('删除操作未影响任何记录');
+      return res.status(500).json({
+        error: '删除书籍失败，未找到对应记录',
+        code: 'DELETE_NO_EFFECT'
+      });
+    }
+
+    console.log(`成功删除用户 ${userId} 的书籍 ${bookId} 进度记录，删除了 ${deletedData.length} 条记录`);
+
+    // 6. 返回成功响应
+    res.json({
+      message: '书籍删除成功，已解除绑定关系',
+      deletedBook: {
+        bookId: bookId,
+        title: book.title,
+        author: book.author,
+        deletedAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('删除书籍时发生错误:', error);
+    res.status(500).json({
+      error: '服务器内部错误',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
 // 安全檢查與去重
 function deduplicateQuestions(generatedQuestions, existingQuestions) {
   const existingStatements = new Set(existingQuestions.map(q => q.statement.toLowerCase().trim()));

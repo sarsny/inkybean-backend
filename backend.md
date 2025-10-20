@@ -317,6 +317,56 @@ Authorization: Bearer <JWT_TOKEN>
 }
 ```
 
+#### DELETE /books/:bookId/unselect
+用户删除书籍，解除用户与书籍的绑定关系
+
+**Headers:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**路径参数:**
+- `bookId`: 书籍唯一标识符 (UUID)
+
+**工作流程:**
+1. **书籍验证**: 验证书籍是否存在
+2. **绑定检查**: 检查用户是否已经选择过该书籍
+3. **删除记录**: 从 `user_progress` 表中删除用户进度记录
+4. **返回信息**: 返回删除成功的确认信息
+
+**响应示例:**
+```json
+{
+  "message": "书籍删除成功，已解除绑定关系",
+  "deletedBook": {
+    "bookId": "caa8bde3-48be-4f3f-b6f0-3f4b7f8862c4",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "deletedAt": "2025-10-20T11:30:00.000Z"
+  }
+}
+```
+
+**错误响应:**
+- `404 BOOK_NOT_FOUND`: 书籍不存在
+- `404 PROGRESS_NOT_FOUND`: 用户尚未选择过这本书籍
+- `500 DATABASE_ERROR`: 数据库查询错误
+- `500 DATABASE_DELETE_ERROR`: 删除记录失败
+```json
+{
+  "message": "您已经选择过这本书籍",
+  "userProgress": {
+    "progressId": "b744e6d1-49a0-4557-b336-6e84a04000a1",
+    "bookId": "caa8bde3-48be-4f3f-b6f0-3f4b7f8862c4",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "questionCount": 10,
+    "alreadySelected": true,
+    "selectedAt": "2025-10-16T08:48:09.30223+00:00"
+  }
+}
+```
+
 **错误码:**
 - `BOOK_NOT_FOUND`: 书籍不存在或未发布
 - `NO_QUESTIONS_AVAILABLE`: 该书籍暂无题目，无法开始巩固

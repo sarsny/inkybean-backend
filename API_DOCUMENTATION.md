@@ -430,6 +430,61 @@ Content-Type: application/json
 - `title`: 书籍标题
 - `author`: 作者
 - `questionCount`: 书籍题目总数
+- `highestAccuracy`: 最高准确率 (0-100)
+- `totalAttempts`: 总尝试次数
+- `lastAttemptedAt`: 最后尝试时间
+- `alreadySelected`: 是否已经选择过该书籍
+- `selectedAt`: 选择时间
+
+#### 错误码
+- `BOOK_NOT_FOUND`: 书籍不存在或未发布
+- `NO_QUESTIONS_AVAILABLE`: 书籍暂无题目
+- `DATABASE_ERROR`: 数据库查询错误
+- `DATABASE_INSERT_ERROR`: 记录创建失败
+- `UNAUTHORIZED`: 未授权访问
+
+### 4. 删除书籍绑定关系
+**DELETE** `/books/:bookId/unselect`
+
+#### 功能说明
+用户删除书籍，解除用户与书籍的绑定关系。删除后用户的学习进度将被清除。
+
+#### 请求头
+```
+Authorization: Bearer <token>
+```
+
+#### 路径参数
+- `bookId`: 书籍ID (uuid)
+
+#### 响应示例
+
+**删除成功 (200)**:
+```json
+{
+  "message": "书籍删除成功，已解除绑定关系",
+  "deletedBook": {
+    "bookId": "caa8bde3-48be-4f3f-b6f0-3f4b7f8862c4",
+    "title": "平凡的世界",
+    "author": "路遥",
+    "deletedAt": "2025-10-20T11:30:00.000Z"
+  }
+}
+```
+
+#### 字段说明
+- `bookId`: 书籍唯一标识符
+- `title`: 书籍标题
+- `author`: 作者
+- `deletedAt`: 删除时间
+
+#### 错误码
+- `BOOK_NOT_FOUND`: 书籍不存在
+- `PROGRESS_NOT_FOUND`: 用户尚未选择过这本书籍
+- `DATABASE_ERROR`: 数据库查询错误
+- `DATABASE_DELETE_ERROR`: 删除记录失败
+- `UNAUTHORIZED`: 未授权访问
+- `questionCount`: 书籍题目总数
 - `highestAccuracy`: 历史最高正确率 (0-1之间的小数)
 - `totalAttempts`: 总尝试次数
 - `lastAttemptedAt`: 最后尝试时间 (ISO 8601格式，可为null)
