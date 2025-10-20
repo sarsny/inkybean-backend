@@ -66,7 +66,7 @@
 - `PASSWORD_MISMATCH`: 密码不匹配
 - `VALIDATION_ERROR`: 参数验证失败
 
-### 2. 用户登录
+### 2. 用户登录（邮箱）
 **POST** `/auth/login`
 
 #### 请求参数
@@ -91,6 +91,37 @@
 
 #### 错误码
 - `INVALID_CREDENTIALS`: 邮箱或密码错误
+- `USER_NOT_FOUND`: 用户不存在
+
+### 2.1 用户登录（用户名）
+**POST** `/auth/login/username`
+
+#### 请求参数
+```json
+{
+  "username": "testuser",
+  "password": "password123"
+}
+```
+
+#### 响应示例
+```json
+{
+  "message": "登录成功",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "testuser",
+    "displayName": "Test User",
+    "avatarUrl": null,
+    "lastSignInAt": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+#### 错误码
+- `INVALID_CREDENTIALS`: 用户名或密码错误
 - `USER_NOT_FOUND`: 用户不存在
 
 ### 3. 微信授权登录
@@ -1061,7 +1092,7 @@ func completeChat(message: String, token: String) async throws -> String {
 ### 1. 认证处理
 - 所有需要认证的接口都需要在请求头中携带 `Authorization: Bearer <token>`
 - Token 过期时会返回 401 状态码，需要重新登录
-- Token 有效期为 7 天
+- Token 有效期为 30 天
 
 ### 2. 错误处理
 - 始终检查响应的状态码

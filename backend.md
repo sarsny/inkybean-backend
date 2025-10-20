@@ -138,7 +138,7 @@ InkyBean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 RE
 ```
 
 #### POST /auth/login
-用户登录
+用户登录（邮箱）
 
 **请求体:**
 ```json
@@ -155,6 +155,33 @@ InkyBean iOS App 后端服务是一个基于 Node.js + Express + Supabase 的 RE
   "user": {
     "id": "uuid",
     "email": "user@example.com",
+    "lastSignInAt": "2024-01-01T00:00:00Z"
+  },
+  "token": "jwt_token_here"
+}
+```
+
+#### POST /auth/login/username
+用户登录（用户名）
+
+**请求体:**
+```json
+{
+  "username": "testuser",
+  "password": "password123"
+}
+```
+
+**响应示例:**
+```json
+{
+  "message": "Login successful",
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "testuser",
+    "displayName": "Test User",
+    "avatarUrl": null,
     "lastSignInAt": "2024-01-01T00:00:00Z"
   },
   "token": "jwt_token_here"
