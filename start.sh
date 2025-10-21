@@ -102,18 +102,18 @@ case $ENV in
         export NODE_ENV=development
         # 检查 nodemon 是否可用
         if command -v nodemon &> /dev/null || [ -x "node_modules/.bin/nodemon" ]; then
-            npm run dev &
+            npm run dev >> logs/combined.log 2>> logs/error.log &
         else
             echo -e "${YELLOW}⚠️  未检测到 nodemon，开发模式将降级为普通运行${NC}"
             echo -e "${YELLOW}   解决方案：运行 'npm install -D nodemon' 安装开发依赖${NC}"
             echo -e "${YELLOW}   或者使用生产模式启动：'./start.sh production'${NC}"
-            node index.js &
+            node index.js >> logs/combined.log 2>> logs/error.log &
         fi
         ;;
     "prod"|"production")
         echo -e "${GREEN}🚀 启动生产环境...${NC}"
         export NODE_ENV=production
-        npm start &
+        npm start >> logs/combined.log 2>> logs/error.log &
         ;;
     *)
         echo -e "${RED}❌ 未知环境: $ENV${NC}"
