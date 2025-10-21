@@ -1,0 +1,213 @@
+{
+  "timestamp": "2025-10-21T08:24:33.929Z",
+  "summary": {
+    "total": 23,
+    "success": 23,
+    "failure": 0
+  },
+  "results": [
+    {
+      "bookId": "7c66a9bc-f7f6-4f8b-8b10-99250f67d2d6",
+      "title": "Advanced Vocabulary Games",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:22:52.978Z",
+        "author": "Schinke-Llano, Linda"
+      }
+    },
+    {
+      "bookId": "fc824e9f-9d64-4869-9516-351b4bd79d65",
+      "title": "Business English",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:22:56.240Z",
+        "author": "Lewis, Edwin Herbert"
+      }
+    },
+    {
+      "bookId": "a14e6684-1d23-4d53-a917-6d5fff7feab5",
+      "title": "English Grammar Basics",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:00.799Z",
+        "author": "Bromwell, L. Anne"
+      }
+    },
+    {
+      "bookId": "984b6530-2289-4687-a332-f4068cdcb3ef",
+      "title": "原则",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:05.100Z",
+        "author": "[美] 瑞·达利欧"
+      }
+    },
+    {
+      "bookId": "053552de-e0ea-44bd-a45c-6658a2d92993",
+      "title": "百年孤独",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:08.856Z",
+        "coverImageUrl": "https://img1.doubanio.com/view/subject/m/public/s27237850.jpg"
+      }
+    },
+    {
+      "bookId": "95f43468-6456-4965-9372-fcd8993e0af7",
+      "title": "一个广告人的自白",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:18.143Z",
+        "author": "（美）奥格威"
+      }
+    },
+    {
+      "bookId": "4183ef9e-90f0-458d-a84b-7c623246144f",
+      "title": "书籍添加测试书籍",
+      "status": "no_changes",
+      "reason": "信息已是最新"
+    },
+    {
+      "bookId": "da90aa52-b1be-4253-b668-db9c0c3b02ab",
+      "title": "采油测试工（上册）/石油石化职业技能培训教程",
+      "status": "no_changes",
+      "reason": "信息已是最新"
+    },
+    {
+      "bookId": "8926132b-7b1c-40d9-9561-a5f50ed2fb68",
+      "title": "吸金广告",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:32.733Z",
+        "author": "[美] 德鲁·埃里克·惠特曼"
+      }
+    },
+    {
+      "bookId": "5b580bd5-25d0-4af7-89ff-98b9086de81e",
+      "title": "哈利·波特与魔法石",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:37.727Z",
+        "author": "[英] J. K. 罗琳"
+      }
+    },
+    {
+      "bookId": "0e8f8e2d-3221-4f23-9bcd-8a07a716091e",
+      "title": "钝感力",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:40.830Z",
+        "author": "[日] 渡边淳一"
+      }
+    },
+    {
+      "bookId": "cac273fb-c562-402d-a089-e7013967943b",
+      "title": "从0到1",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:46.231Z",
+        "author": "[美] 彼得·蒂尔, [美] 布莱克·马斯特斯"
+      }
+    },
+    {
+      "bookId": "8ecdad61-4c6b-4597-95cf-9564e5845eed",
+      "title": "三体",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:51.234Z",
+        "author": "刘慈欣"
+      }
+    },
+    {
+      "bookId": "b252b71e-7146-4c10-b4c9-b33c0ea4d7dd",
+      "title": "活出生命的意义",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:54.241Z",
+        "author": "[奥] 维克多·弗兰克"
+      }
+    },
+    {
+      "bookId": "b39fa524-04b6-44e6-8020-2019825d62b1",
+      "title": "叛逆不是孩子的错",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:57.033Z",
+        "author": "（美）杰弗里•伯恩斯坦（Jeffrey Bernstein)"
+      }
+    },
+    {
+      "bookId": "c3987aaa-1b7a-445c-8028-6f9843927404",
+      "title": "创业维艰",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:23:59.889Z",
+        "author": "本·霍洛维茨 Ben Horowitz"
+      }
+    },
+    {
+      "bookId": "8d2d8799-eaa5-4e00-8c5e-e0950aa53024",
+      "title": "让孩子远离焦虑",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:24:02.592Z",
+        "author": "[美] 塔玛·琼斯基 著, 吴宛蒙 译, 湛庐出品"
+      }
+    },
+    {
+      "bookId": "15f1e24d-c5cf-45af-aebc-a2c2ffed2ea1",
+      "title": "次第花开",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:24:08.219Z",
+        "author": "希阿荣博堪布"
+      }
+    },
+    {
+      "bookId": "bafe9391-0c82-44bf-adae-a3aa1c46520f",
+      "title": "认同",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:24:11.639Z",
+        "author": "约翰 P. 科特 （John P. Kotter）, 罗恩 A. 怀特海德（Lorne A. Whitehead）, 约翰·P.科特"
+      }
+    },
+    {
+      "bookId": "00549f69-f96a-4c4a-8d52-45a8d22b8490",
+      "title": "解压全书",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:24:23.142Z",
+        "author": "［美］伊芙·亚当森（Eve Adamson）",
+        "description": "无论是在工作中还是在生活中，如果你总是感到沮丧或者压力重重，那么你需要一本《解压全书》！\n你能在本书中找到许多通俗易懂的压力管理技巧，从正念到整理收纳，从简单易行的锻炼建议到掌控财富的方法。\n从一个简单的测试开始，帮你识别你的脆弱之处，带你一步一步通过安全、有效的方法来缓解压力，回归健康、阳光的生活。\n你可以利用本书中讲解的模板和压力管理随笔的方式，记录下自己遇到的或大或小的压力，以及运用不同压力管理策略的效果。\n了解压力，管理压力，重新找到生活和工作的平衡，乐观、自信地面对世界！",
+        "coverImageUrl": "https://img2.doubanio.com/view/subject/m/public/s33885011.jpg"
+      }
+    },
+    {
+      "bookId": "1352f926-7555-45bc-b4f2-b3ef20f5e93b",
+      "title": "精神问题有什么可笑的",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:24:26.839Z",
+        "author": "（英）怀克丝（Wax,R.）"
+      }
+    },
+    {
+      "bookId": "8a694229-6cc7-433e-aca9-a911e8299937",
+      "title": "零边际成本社会",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:24:29.912Z",
+        "author": "[美]杰里米·里夫金"
+      }
+    },
+    {
+      "bookId": "4e19aa3b-8528-4ec5-8bd3-92d6f240eb50",
+      "title": "支付战争",
+      "status": "success",
+      "changes": {
+        "updatedAt": "2025-10-21T08:24:32.533Z",
+        "author": "[美] 埃里克·杰克逊"
+      }
+    }
+  ]
+}

@@ -68,6 +68,15 @@ router.post('/', authenticateToken, async (req, res) => {
 
       // 解析工作流返回的结果
       if (!workflowResponse || workflowResponse.code !== 0) {
+        // 检查是否是Coze工作流插件节点执行失败
+        if (workflowResponse && workflowResponse.code === 6012) {
+          console.error('Coze 工作流插件节点执行失败:', workflowResponse.msg);
+          return res.status(400).json({
+            error: '无法获取书籍信息，请检查书名是否正确或稍后重试',
+            code: 'BOOK_INFO_NOT_FOUND',
+            details: workflowResponse.msg
+          });
+        }
         throw new Error(`Coze 工作流执行失败: ${workflowResponse?.msg || '未知错误'}`);
       }
 
@@ -94,7 +103,11 @@ router.post('/', authenticateToken, async (req, res) => {
       
       // 验证返回的书籍信息 - 根据实际响应结构调整
       if (!output) {
-        throw new Error('Coze 返回的书籍信息不完整');
+        console.error('Coze 工作流返回空结果');
+        return res.status(400).json({
+          error: '无法获取书籍信息，请检查书名是否正确',
+          code: 'BOOK_INFO_NOT_FOUND'
+        });
       }
 
       // 处理作者信息 - 根据实际Coze响应格式更新字段映射
@@ -111,23 +124,66 @@ router.post('/', authenticateToken, async (req, res) => {
       // 根据实际响应结构提取书名
       let bookName = output.book_name || output.title || bookTitle;
 
+      // 验证关键信息是否存在
+      if (!bookName || bookName.trim() === '') {
+        console.error('Coze 返回的书名为空');
+        return res.status(400).json({
+          error: '获取的书籍信息不完整：缺少书名',
+          code: 'INCOMPLETE_BOOK_INFO'
+        });
+      }
+
       bookInfo = {
-        title: bookName,
-        author: authorName,
-        description: output.summary || output.description || '',
-        coverImageUrl: output.book_image || output.cover_image || ''
+        title: bookName.trim(),
+        author: authorName.trim() || '未知作者',
+        description: (output.summary || output.description || '').trim(),
+        coverImageUrl: (output.book_image || output.cover_image || '').trim()
       };
+
+      // 验证书籍信息的完整性
+      if (!bookInfo.title) {
+        console.error('处理后的书籍信息缺少标题');
+        return res.status(400).json({
+          error: '书籍信息处理失败：标题为空',
+          code: 'INVALID_BOOK_TITLE'
+        });
+      }
 
     } catch (cozeError) {
       console.error('Coze 工作流调用失败:', cozeError);
-      return res.status(500).json({
-        error: '无法找到书籍信息，请稍后再试',
-        code: 'COZE_API_ERROR',
-        details: cozeError.message
+      
+      // 根据错误类型返回不同的错误码
+      if (cozeError.message && cozeError.message.includes('400')) {
+        return res.status(400).json({
+          error: '书籍信息请求参数错误，请检查书名格式',
+          code: 'INVALID_REQUEST_PARAMS',
+          details: cozeError.message
+        });
+      } else if (cozeError.message && cozeError.message.includes('timeout')) {
+        return res.status(408).json({
+          error: '获取书籍信息超时，请稍后重试',
+          code: 'REQUEST_TIMEOUT',
+          details: cozeError.message
+        });
+      } else {
+        return res.status(500).json({
+          error: '无法获取书籍信息，服务暂时不可用',
+          code: 'COZE_SERVICE_ERROR',
+          details: cozeError.message
+        });
+      }
+    }
+
+    // 第三步：最终验证书籍信息完整性
+    if (!bookInfo || !bookInfo.title || bookInfo.title.trim() === '') {
+      console.error('最终验证失败：书籍信息不完整', bookInfo);
+      return res.status(400).json({
+        error: '获取的书籍信息不完整，无法添加到书库',
+        code: 'INCOMPLETE_BOOK_DATA'
       });
     }
 
-    // 第三步：将书籍信息写入数据库
+    // 第四步：将书籍信息写入数据库
     const { data: newBook, error: insertError } = await supabaseAdmin
       .from('books')
       .insert({
@@ -143,13 +199,28 @@ router.post('/', authenticateToken, async (req, res) => {
 
     if (insertError) {
       console.error('书籍入库失败:', insertError);
-      return res.status(500).json({
-        error: '书籍信息保存失败',
-        code: 'DATABASE_INSERT_ERROR'
-      });
+      
+      // 根据数据库错误类型返回不同的错误码
+      if (insertError.code === '23505') { // 唯一约束违反
+        return res.status(409).json({
+          error: '书籍已存在，无法重复添加',
+          code: 'DUPLICATE_BOOK'
+        });
+      } else if (insertError.code === '23502') { // 非空约束违反
+        return res.status(400).json({
+          error: '书籍信息缺少必要字段',
+          code: 'MISSING_REQUIRED_FIELDS'
+        });
+      } else {
+        return res.status(500).json({
+          error: '书籍信息保存失败，请稍后重试',
+          code: 'DATABASE_INSERT_ERROR',
+          details: insertError.message
+        });
+      }
     }
 
-    // 第四步：立即返回响应
+    // 第五步：立即返回响应
     const responseData = {
       message: '书籍添加成功',
       book: {

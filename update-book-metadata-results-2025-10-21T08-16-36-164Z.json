@@ -1,0 +1,273 @@
+{
+  "total": 65,
+  "success": 0,
+  "failed": 65,
+  "details": [
+    {
+      "success": false,
+      "bookId": "036037bb-e3f2-4747-882e-8a50f567ad5d",
+      "title": "查拉图可如此说",
+      "error": "Coze 工作流执行失败: Workflow plugin node execution failed due to HTTP 400 Bad Request error, check request parameters and endpoint configuration for correctness and try again.",
+      "reason": "Coze 工作流执行失败: Workflow plugin node execution failed due to HTTP 400 Bad Request error, check request parameters and endpoint configuration for correctness and try again."
+    },
+    {
+      "success": false,
+      "bookId": "85b332be-df0f-4fc3-9edb-44ac7d46463b",
+      "title": "王际开如此是说",
+      "error": "Coze 工作流执行失败: Workflow plugin node execution failed due to HTTP 400 Bad Request error, check request parameters and endpoint configuration for correctness and try again.",
+      "reason": "Coze 工作流执行失败: Workflow plugin node execution failed due to HTTP 400 Bad Request error, check request parameters and endpoint configuration for correctness and try again."
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    },
+    {
+      "success": false,
+      "reason": "未获取到封面图片"
+    }
+  ]
+}

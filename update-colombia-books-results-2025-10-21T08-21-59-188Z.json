@@ -1,0 +1,148 @@
+{
+  "timestamp": "2025-10-21T08:21:59.195Z",
+  "summary": {
+    "total": 23,
+    "success": 0,
+    "failure": 23
+  },
+  "results": [
+    {
+      "bookId": "7c66a9bc-f7f6-4f8b-8b10-99250f67d2d6",
+      "title": "Advanced Vocabulary Games",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "fc824e9f-9d64-4869-9516-351b4bd79d65",
+      "title": "Business English",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "a14e6684-1d23-4d53-a917-6d5fff7feab5",
+      "title": "English Grammar Basics",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "984b6530-2289-4687-a332-f4068cdcb3ef",
+      "title": "原则",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "053552de-e0ea-44bd-a45c-6658a2d92993",
+      "title": "百年孤独",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "95f43468-6456-4965-9372-fcd8993e0af7",
+      "title": "一个广告人的自白",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "4183ef9e-90f0-458d-a84b-7c623246144f",
+      "title": "书籍添加测试书籍",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "da90aa52-b1be-4253-b668-db9c0c3b02ab",
+      "title": "采油测试工（上册）/石油石化职业技能培训教程",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "8926132b-7b1c-40d9-9561-a5f50ed2fb68",
+      "title": "吸金广告",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "5b580bd5-25d0-4af7-89ff-98b9086de81e",
+      "title": "哈利·波特与魔法石",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "0e8f8e2d-3221-4f23-9bcd-8a07a716091e",
+      "title": "钝感力",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "cac273fb-c562-402d-a089-e7013967943b",
+      "title": "从0到1",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "8ecdad61-4c6b-4597-95cf-9564e5845eed",
+      "title": "三体",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "b252b71e-7146-4c10-b4c9-b33c0ea4d7dd",
+      "title": "活出生命的意义",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "b39fa524-04b6-44e6-8020-2019825d62b1",
+      "title": "叛逆不是孩子的错",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "c3987aaa-1b7a-445c-8028-6f9843927404",
+      "title": "创业维艰",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "8d2d8799-eaa5-4e00-8c5e-e0950aa53024",
+      "title": "让孩子远离焦虑",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "15f1e24d-c5cf-45af-aebc-a2c2ffed2ea1",
+      "title": "次第花开",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "bafe9391-0c82-44bf-adae-a3aa1c46520f",
+      "title": "认同",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "00549f69-f96a-4c4a-8d52-45a8d22b8490",
+      "title": "解压全书",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "1352f926-7555-45bc-b4f2-b3ef20f5e93b",
+      "title": "精神问题有什么可笑的",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "8a694229-6cc7-433e-aca9-a911e8299937",
+      "title": "零边际成本社会",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    },
+    {
+      "bookId": "4e19aa3b-8528-4ec5-8bd3-92d6f240eb50",
+      "title": "支付战争",
+      "status": "failed",
+      "reason": "返回的书籍信息无效"
+    }
+  ]
+}
