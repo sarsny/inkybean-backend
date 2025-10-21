@@ -169,12 +169,21 @@ router.post('/', authenticateToken, async (req, res) => {
       try {
         console.log(`开始为书籍 ${newBook.bookId} 生成题目...`);
         
-        // 直接调用题目生成函数，避免HTTP请求
+        // 第一次生成题目
+        console.log(`📚 第一次生成题目 - 书籍 ${newBook.bookId}`);
         await generateQuestionsForBook(newBook.bookId, newBook.title, newBook.author);
         
-        console.log(`书籍 ${newBook.bookId} 题目生成完成`);
+        // 等待1秒后进行第二次生成
+        console.log(`⏳ 等待1秒后进行第二次生成...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // 第二次生成题目
+        console.log(`📚 第二次生成题目 - 书籍 ${newBook.bookId}`);
+        await generateQuestionsForBook(newBook.bookId, newBook.title, newBook.author);
+        
+        console.log(`✅ 书籍 ${newBook.bookId} 两次题目生成完成`);
       } catch (generateError) {
-        console.error(`书籍 ${newBook.bookId} 题目生成失败:`, generateError.message);
+        console.error(`❌ 书籍 ${newBook.bookId} 题目生成失败:`, generateError.message);
         // 这里可以添加重试逻辑或者记录到错误日志
       }
     });
@@ -269,8 +278,8 @@ router.get('/:bookId/questions', authenticateToken, async (req, res) => {
     // 3. 打乱题目顺序（增加趣味性）
     const shuffledQuestions = [...questions].sort(() => Math.random() - 0.5);
 
-    // 4. 限制返回数量为10题
-    const limitedQuestions = shuffledQuestions.slice(0, 10);
+    // 4. 限制返回数量为5题
+    const limitedQuestions = shuffledQuestions.slice(0, 5);
 
     // 5. 格式化返回数据
     const formattedQuestions = limitedQuestions.map(question => ({
@@ -655,70 +664,87 @@ You MUST respond with a valid JSON array of question objects. Each object must f
 
 // 调用DeepSeek API - 支持不同的参数配置
 async function callDeepSeekAPI(prompt, options = {}) {
-  try {
-    console.log('🤖 Calling DeepSeek API...');
-    console.log('🔑 API Key:', process.env.DEEPSEEK_API_KEY ? 'Present' : 'Missing');
-    console.log('🌐 API URL:', process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions');
-    
-    // 默认参数配置
-    const defaultConfig = {
-      temperature: 0.7,
-      max_tokens: 2000
-    };
-    
-    // 合并用户提供的配置
-    const config = { ...defaultConfig, ...options };
-    
-    console.log('⚙️ API Config:', {
-      temperature: config.temperature,
-      max_tokens: config.max_tokens
-    });
-    
-    const response = await axios.post(process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions', {
-      model: 'deepseek-chat',
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: config.temperature,
-      max_tokens: config.max_tokens
-    }, {
-      headers: {
-        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 60000 // 增加到60秒超時
-    });
-
-    console.log('✅ DeepSeek API response received');
-    let content = response.data.choices[0].message.content;
-    console.log('📝 Raw response content:', content.substring(0, 200) + '...');
-    
-    // 清理响应内容，移除可能的markdown代码块标记
-    content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    console.log('🧹 Cleaned content:', content.substring(0, 200) + '...');
-    
-    // 尝试解析JSON响应
+  const maxRetries = 3;
+  const retryDelay = 2000; // 2秒延迟
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return JSON.parse(content);
-    } catch (parseError) {
-      console.error('Failed to parse DeepSeek response as JSON:', content);
-      throw new Error('Invalid JSON response from AI service');
-    }
+      console.log(`🤖 Calling DeepSeek API (attempt ${attempt}/${maxRetries})...`);
+      console.log('🔑 API Key:', process.env.DEEPSEEK_API_KEY ? 'Present' : 'Missing');
+      console.log('🌐 API URL:', process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions');
+      
+      // 默认参数配置
+      const defaultConfig = {
+        temperature: 0.7,
+        max_tokens: 2000
+      };
+      
+      // 合并用户提供的配置
+      const config = { ...defaultConfig, ...options };
+      
+      console.log('⚙️ API Config:', {
+        temperature: config.temperature,
+        max_tokens: config.max_tokens
+      });
+      
+      const response = await axios.post(process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions', {
+        model: 'deepseek-chat',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: config.temperature,
+        max_tokens: config.max_tokens
+      }, {
+        headers: {
+          'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000 // 增加到60秒超時
+      });
 
-  } catch (error) {
-    console.error('DeepSeek API call failed:', error.message);
-    if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
-    } else if (error.code === 'ECONNABORTED') {
-      console.error('Request timeout - API call took too long');
-    } else if (error.code === 'ECONNRESET') {
-      console.error('Connection reset - API server closed the connection');
+      console.log('✅ DeepSeek API response received');
+      let content = response.data.choices[0].message.content;
+      console.log('📝 Raw response content:', content.substring(0, 200) + '...');
+      
+      // 清理响应内容，移除可能的markdown代码块标记
+      content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      console.log('🧹 Cleaned content:', content.substring(0, 200) + '...');
+      
+      // 尝试解析JSON响应
+      try {
+        const result = JSON.parse(content);
+        console.log(`✅ Successfully parsed JSON response on attempt ${attempt}`);
+        return result;
+      } catch (parseError) {
+        console.error(`❌ Failed to parse DeepSeek response as JSON on attempt ${attempt}:`, content);
+        throw new Error('Invalid JSON response from AI service');
+      }
+
+    } catch (error) {
+      console.error(`❌ DeepSeek API call failed on attempt ${attempt}:`, error.message);
+      
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      } else if (error.code === 'ECONNABORTED') {
+        console.error('Request timeout - API call took too long');
+      } else if (error.code === 'ECONNRESET') {
+        console.error('Connection reset - API server closed the connection');
+      }
+      
+      // 如果是最后一次尝试，抛出错误
+      if (attempt === maxRetries) {
+        console.error(`❌ All ${maxRetries} attempts failed, giving up`);
+        throw error;
+      }
+      
+      // 等待后重试
+      console.log(`⏳ Waiting ${retryDelay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
     }
-    throw error;
   }
 }
 
@@ -747,26 +773,38 @@ async function extractExistingThemes(bookId) {
 
 // 階段1：生成新主題的LLM調用
 async function generateNewThemes(bookTitle, author, existingThemes) {
-  try {
-    const prompt = buildPromptA(bookTitle, author, existingThemes);
-    
-    // PromptA 配置：最大化創造力，尋找新角度
-    const promptAConfig = {
-      temperature: 1.0,  // 高創造力 (0.9 ~ 1.2)
-      max_tokens: 2048   // 充足的token空間
-    };
-    
-    const response = await callDeepSeekAPI(prompt, promptAConfig);
-    
-    if (response && response.themes && Array.isArray(response.themes)) {
-      return response.themes;
+  const maxRetries = 3;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🎯 Generating new themes (attempt ${attempt}/${maxRetries})...`);
+      const prompt = buildPromptA(bookTitle, author, existingThemes);
+      
+      // PromptA 配置：最大化創造力，尋找新角度
+      const promptAConfig = {
+        temperature: 1.0,  // 高創造力 (0.9 ~ 1.2)
+        max_tokens: 2048   // 充足的token空間
+      };
+      
+      const response = await callDeepSeekAPI(prompt, promptAConfig);
+      
+      if (response && response.themes && Array.isArray(response.themes)) {
+        console.log(`✅ Successfully generated ${response.themes.length} themes on attempt ${attempt}`);
+        return response.themes;
+      } else {
+        throw new Error('Invalid themes response format');
+      }
+    } catch (error) {
+      console.error(`❌ Failed to generate themes on attempt ${attempt}:`, error.message);
+      
+      if (attempt === maxRetries) {
+        console.error(`❌ All ${maxRetries} attempts to generate themes failed`);
+        throw error;
+      }
+      
+      console.log(`⏳ Retrying theme generation in 1 second...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
-    console.error('Invalid themes response from AI:', response);
-    return [];
-  } catch (error) {
-    console.error('Error generating new themes:', error);
-    return [];
   }
 }
 
@@ -827,33 +865,45 @@ function assignRandomAngles(themes) {
 
 // 階段2：基於指定角度生成題目
 async function generateQuestionsWithAngles(bookTitle, author, themesWithAngles) {
-  try {
-    const prompt = buildPromptB(bookTitle, author, themesWithAngles);
-    
-    // PromptB 配置：平衡創意與穩定，遵循指令
-    const promptBConfig = {
-      temperature: 0.7,  // 平衡創意與穩定 (0.6 ~ 0.8)
-      max_tokens: 4096   // 更大的token空間用於批量生成
-    };
-    
-    const response = await callDeepSeekAPI(prompt, promptBConfig);
-    
-    if (response && response.results && Array.isArray(response.results)) {
-      // 扁平化結果，將所有題目合併到一個數組中
-      const allQuestions = [];
-      response.results.forEach(result => {
-        if (result.questions && Array.isArray(result.questions)) {
-          allQuestions.push(...result.questions);
-        }
-      });
-      return allQuestions;
+  const maxRetries = 3;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📝 Generating questions with angles (attempt ${attempt}/${maxRetries})...`);
+      const prompt = buildPromptB(bookTitle, author, themesWithAngles);
+      
+      // PromptB 配置：平衡創意與穩定，遵循指令
+      const promptBConfig = {
+        temperature: 0.7,  // 平衡創意與穩定 (0.6 ~ 0.8)
+        max_tokens: 4096   // 更大的token空間用於批量生成
+      };
+      
+      const response = await callDeepSeekAPI(prompt, promptBConfig);
+      
+      if (response && response.results && Array.isArray(response.results)) {
+        // 扁平化結果，將所有題目合併到一個數組中
+        const allQuestions = [];
+        response.results.forEach(result => {
+          if (result.questions && Array.isArray(result.questions)) {
+            allQuestions.push(...result.questions);
+          }
+        });
+        console.log(`✅ Successfully generated ${allQuestions.length} questions on attempt ${attempt}`);
+        return allQuestions;
+      } else {
+        throw new Error('Invalid questions response format');
+      }
+    } catch (error) {
+      console.error(`❌ Failed to generate questions on attempt ${attempt}:`, error.message);
+      
+      if (attempt === maxRetries) {
+        console.error(`❌ All ${maxRetries} attempts to generate questions failed`);
+        return [];
+      }
+      
+      console.log(`⏳ Retrying question generation in 1 second...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
-    console.error('Invalid questions response from AI:', response);
-    return [];
-  } catch (error) {
-    console.error('Error generating questions with angles:', error);
-    return [];
   }
 }
 
